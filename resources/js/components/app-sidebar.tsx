@@ -1,9 +1,16 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import {
+    Award,
+    ChartNoAxesColumnIncreasing,
+    FlaskConical,
+    Gauge,
+    Map,
+    Settings2,
+    UserRound,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
     SidebarContent,
@@ -13,34 +20,82 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import {
+    achievements,
+    dashboard,
+    labs,
+    learn,
+    progress,
+    settings,
+} from '@/routes';
+import { show as showProfile } from '@/routes/profile';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+type NavigationGroup = {
+    label: string;
+    items: NavItem[];
+};
+
+const navigationGroups: NavigationGroup[] = [
     {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
+        label: 'Overview',
+        items: [
+            {
+                title: 'Dashboard',
+                href: dashboard(),
+                icon: Gauge,
+            },
+        ],
+    },
+    {
+        label: 'Learn',
+        items: [
+            {
+                title: 'Learning Paths',
+                href: learn(),
+                icon: Map,
+            },
+            {
+                title: 'Labs',
+                href: labs(),
+                icon: FlaskConical,
+            },
+        ],
+    },
+    {
+        label: 'You',
+        items: [
+            {
+                title: 'Progress',
+                href: progress(),
+                icon: ChartNoAxesColumnIncreasing,
+            },
+            {
+                title: 'Achievements',
+                href: achievements(),
+                icon: Award,
+            },
+            {
+                title: 'Profile',
+                href: showProfile(),
+                icon: UserRound,
+            },
+        ],
     },
 ];
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Settings',
+        href: settings(),
+        icon: Settings2,
     },
 ];
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar collapsible="icon" variant="sidebar">
+            <SidebarHeader className="border-sidebar-border border-b p-2">
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
@@ -52,13 +107,18 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent>
-                <NavMain items={mainNavItems} />
+            <SidebarContent className="py-2">
+                {navigationGroups.map((group) => (
+                    <NavMain
+                        key={group.label}
+                        label={group.label}
+                        items={group.items}
+                    />
+                ))}
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="border-sidebar-border border-t p-2">
                 <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
             </SidebarFooter>
         </Sidebar>
     );

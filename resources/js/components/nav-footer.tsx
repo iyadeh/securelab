@@ -1,3 +1,5 @@
+import { Link, router } from '@inertiajs/react';
+import { LogOut } from 'lucide-react';
 import type { ComponentPropsWithoutRef } from 'react';
 import {
     SidebarGroup,
@@ -6,7 +8,8 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { toUrl } from '@/lib/utils';
+import { useCurrentUrl } from '@/hooks/use-current-url';
+import { logout } from '@/routes';
 import type { NavItem } from '@/types';
 
 export function NavFooter({
@@ -16,6 +19,12 @@ export function NavFooter({
 }: ComponentPropsWithoutRef<typeof SidebarGroup> & {
     items: NavItem[];
 }) {
+    const { isCurrentOrParentUrl } = useCurrentUrl();
+
+    const cleanup = (): void => {
+        router.flushAll();
+    };
+
     return (
         <SidebarGroup
             {...props}
@@ -23,25 +32,47 @@ export function NavFooter({
         >
             <SidebarGroupContent>
                 <SidebarMenu>
-                    {items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton
-                                asChild
-                                className="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100"
-                            >
-                                <a
-                                    href={toUrl(item.href)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                    {items.map((item) => {
+                        const isActive = isCurrentOrParentUrl(item.href);
+
+                        return (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={isActive}
+                                    tooltip={{ children: item.title }}
+                                    className="data-[active=true]:text-sidebar-primary data-[active=true]:font-medium"
                                 >
-                                    {item.icon && (
-                                        <item.icon className="h-5 w-5" />
-                                    )}
-                                    <span>{item.title}</span>
-                                </a>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
+                                    <Link
+                                        href={item.href}
+                                        prefetch
+                                        aria-current={
+                                            isActive ? 'page' : undefined
+                                        }
+                                    >
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        );
+                    })}
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={{ children: 'Logout' }}
+                        >
+                            <Link
+                                href={logout()}
+                                as="button"
+                                onClick={cleanup}
+                                className="w-full"
+                            >
+                                <LogOut />
+                                <span>Logout</span>
+                            </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarGroupContent>
         </SidebarGroup>
