@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Lesson> $lessons
+ * @property-read Collection<int, LabProgress> $progress
  */
 #[Fillable(['slug', 'title', 'description', 'vulnerability_type', 'difficulty', 'scenario'])]
 class Lab extends Model
@@ -31,5 +32,10 @@ class Lab extends Model
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class);
+    }
+
+    public function progress(): HasMany
+    {
+        return $this->hasMany(LabProgress::class);
     }
 }
