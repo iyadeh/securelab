@@ -20,3 +20,27 @@ test('password confirmation requires authentication', function () {
 
     $response->assertRedirect(route('login'));
 });
+
+test('password can be confirmed', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('password.confirm.store'), [
+        'password' => 'password',
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('auth.password_confirmed_at');
+});
+
+test('password is not confirmed with an invalid password', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->post(route('password.confirm.store'), [
+        'password' => 'wrong-password',
+    ]);
+
+    $response
+        ->assertSessionHasErrors('password')
+        ->assertSessionMissing('auth.password_confirmed_at');
+});
