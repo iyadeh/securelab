@@ -225,13 +225,16 @@ SecureLab v1 memiliki area utama:
 Main navigation:
 
 **Overview**
+
 - Dashboard
 
 **Learn**
+
 - Learning Paths
 - Labs
 
 **You**
+
 - Progress
 - Achievements
 - Profile
@@ -584,15 +587,19 @@ Skill categories awal:
 Initial achievements dapat berupa:
 
 ### First Blood
+
 Complete first lab.
 
 ### Code Explorer
+
 Complete a defined number of lessons.
 
 ### Quick Learner
+
 Complete a beginner learning sequence.
 
 ### Persistent Learner
+
 Maintain learning activity over multiple days.
 
 Achievements harus bersifat educational/gamification ringan dan tidak mengganggu core experience.
