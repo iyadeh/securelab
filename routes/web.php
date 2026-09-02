@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\LabController;
 use App\Http\Controllers\LearningPathController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\LessonProgressController;
@@ -27,7 +28,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     )
         ->scopeBindings()
         ->name('lessons.complete');
-    Route::inertia('labs', 'labs')->name('labs');
+    Route::get('labs', [LabController::class, 'index'])->name('labs');
     Route::inertia('progress', 'progress')->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');
     Route::inertia('profile', 'profile')->name('profile.show');

@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Lab;
+use App\Models\Lesson;
+use App\Models\User;
+use App\Services\LearningProgressService;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class LabController extends Controller
+{
+    /**
+     * Display the available lab catalog for the current user.
+     */
+    public function index(Request $request, LearningProgressService $progressService): Response
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $labs = Lab::query()
+            ->select(['id', 'slug', 'title', 'description', 'vulnerability_type', 'difficulty'])
+            ->with([
+                'lessons' => fn (HasMany $query): HasMany => $query
+                    ->select(['id', 'lab_id', 'learning_module_id', 'slug', 'title'])
+                    ->orderBy('slug'),
+                'lessons.learningModule:id,learning_path_id,title',
+                'lessons.learningModule.learningPath:id,slug,title',
+            ])
+            ->orderBy('title')
+            ->orderBy('slug')
+            ->get();
+        $catalogProgress = $progressService->labCatalogProgress($user, $labs);
+
+        return Inertia::render('labs', [
+            'summary' => $catalogProgress['progress'],
+            'labs' => $labs->map(function (Lab $lab) use ($catalogProgress): array {
+                /** @var Lesson|null $lesson */
+                $lesson = $lab->lessons->first();
+
+                return [
+                    'slug' => $lab->slug,
+                    'title' => $lab->title,
+                    'description' => $lab->description,
+                    'vulnerability_type' => $lab->vulnerability_type,
+                    'difficulty' => $lab->difficulty,
+                    'state' => $catalogProgress['lab_states'][$lab->id],
+                    'lesson' => $lesson === null
+                        ? null
+                        : [
+                            'slug' => $lesson->slug,
+                            'title' => $lesson->title,
+                            'module' => [
+                                'title' => $lesson->learningModule->title,
+                            ],
+                            'learning_path' => [
+                                'slug' => $lesson->learningModule->learningPath->slug,
+                                'title' => $lesson->learningModule->learningPath->title,
+                            ],
+                        ],
+                ];
+            })->values(),
+        ]);
+    }
+}

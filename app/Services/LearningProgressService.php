@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Lab;
+use App\Models\LabProgress;
 use App\Models\LearningModule;
 use App\Models\LearningPath;
 use App\Models\Lesson;
@@ -155,15 +156,7 @@ class LearningProgressService
             ->whereBelongsTo($lab, 'lab')
             ->first(['id', 'completed_at']);
 
-        if ($progress === null) {
-            return self::STATE_NOT_STARTED;
-        }
-
-        if ($progress->completed_at !== null) {
-            return self::STATE_COMPLETED;
-        }
-
-        return self::STATE_IN_PROGRESS;
+        return $this->labStateFromProgress($progress);
     }
 
     /**
@@ -178,6 +171,40 @@ class LearningProgressService
             $progress->count(),
             $progress->whereNotNull('completed_at')->count(),
         );
+    }
+
+    /**
+     * Derive aggregate progress and per-lab states for an already loaded catalog.
+     *
+     * @param  EloquentCollection<int, Lab>  $labs
+     * @return array{
+     *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int},
+     *     lab_states: array<int, 'not_started'|'in_progress'|'completed'>
+     * }
+     */
+    public function labCatalogProgress(User $user, EloquentCollection $labs): array
+    {
+        if ($labs->isEmpty()) {
+            return [
+                'progress' => $this->progressCounts(0, 0, 0),
+                'lab_states' => [],
+            ];
+        }
+
+        $progressByLabId = $user->labProgress()
+            ->whereIn('lab_id', $labs->modelKeys())
+            ->get(['lab_id', 'completed_at'])
+            ->keyBy('lab_id');
+        $completed = $progressByLabId->whereNotNull('completed_at')->count();
+
+        return [
+            'progress' => $this->progressCounts($labs->count(), $progressByLabId->count(), $completed),
+            'lab_states' => $labs->mapWithKeys(
+                fn (Lab $lab): array => [
+                    $lab->id => $this->labStateFromProgress($progressByLabId->get($lab->id)),
+                ],
+            )->all(),
+        ];
     }
 
     /**
@@ -276,6 +303,22 @@ class LearningProgressService
      * @return 'not_started'|'in_progress'|'completed'
      */
     private function lessonStateFromProgress(?LessonProgress $progress): string
+    {
+        if ($progress === null) {
+            return self::STATE_NOT_STARTED;
+        }
+
+        if ($progress->completed_at !== null) {
+            return self::STATE_COMPLETED;
+        }
+
+        return self::STATE_IN_PROGRESS;
+    }
+
+    /**
+     * @return 'not_started'|'in_progress'|'completed'
+     */
+    private function labStateFromProgress(?LabProgress $progress): string
     {
         if ($progress === null) {
             return self::STATE_NOT_STARTED;
