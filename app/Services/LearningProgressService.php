@@ -8,6 +8,7 @@ use App\Models\LearningPath;
 use App\Models\Lesson;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class LearningProgressService
 {
@@ -16,6 +17,54 @@ class LearningProgressService
     private const STATE_IN_PROGRESS = 'in_progress';
 
     private const STATE_COMPLETED = 'completed';
+
+    /**
+     * Derive progress and the next lesson for several eagerly loaded paths with one progress query.
+     *
+     * @param  Collection<int, LearningPath>  $learningPaths
+     * @return array<int, array{progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}, next_lesson: Lesson|null}>
+     */
+    public function learningPathOverviews(User $user, Collection $learningPaths): array
+    {
+        if ($learningPaths->isEmpty()) {
+            return [];
+        }
+
+        $learningPaths->loadMissing('learningModules.lessons');
+        $lessonIds = $learningPaths
+            ->flatMap(fn (LearningPath $learningPath) => $learningPath->learningModules)
+            ->flatMap(fn (LearningModule $learningModule) => $learningModule->lessons)
+            ->pluck('id');
+        $progressByLessonId = $user->lessonProgress()
+            ->whereIn('lesson_id', $lessonIds)
+            ->get(['lesson_id', 'completed_at'])
+            ->keyBy('lesson_id');
+        $overviews = [];
+
+        foreach ($learningPaths as $learningPath) {
+            $lessons = $learningPath->learningModules
+                ->flatMap(fn (LearningModule $learningModule) => $learningModule->lessons);
+            $started = $lessons->filter(
+                fn (Lesson $lesson): bool => $progressByLessonId->has($lesson->id),
+            )->count();
+            $completed = $lessons->filter(
+                fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at !== null,
+            )->count();
+            $counts = $this->progressCounts($lessons->count(), $started, $completed);
+
+            $overviews[$learningPath->id] = [
+                'progress' => [
+                    ...$counts,
+                    'completion_percentage' => $this->completionPercentage($completed, $lessons->count()),
+                ],
+                'next_lesson' => $lessons->first(
+                    fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at === null,
+                ),
+            ];
+        }
+
+        return $overviews;
+    }
 
     /**
      * Completion percentage is rounded to the nearest whole number using half-up rounding.

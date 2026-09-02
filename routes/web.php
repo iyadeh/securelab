@@ -1,12 +1,13 @@
 <?php
 
+use App\Http\Controllers\LearningPathController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
-    Route::inertia('learn', 'learning-paths')->name('learn');
+    Route::get('learn', [LearningPathController::class, 'index'])->name('learn');
     Route::inertia('labs', 'labs')->name('labs');
     Route::inertia('progress', 'progress')->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');
