@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\LearningPathController;
 use App\Http\Controllers\LessonController;
+use App\Http\Controllers\LessonProgressController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -14,6 +15,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('learn/{learningPath:slug}/{lesson:slug}', [LessonController::class, 'show'])
         ->scopeBindings()
         ->name('lessons.show');
+    Route::post(
+        'learn/{learningPath:slug}/{lesson:slug}/start',
+        [LessonProgressController::class, 'start'],
+    )
+        ->scopeBindings()
+        ->name('lessons.start');
+    Route::post(
+        'learn/{learningPath:slug}/{lesson:slug}/complete',
+        [LessonProgressController::class, 'complete'],
+    )
+        ->scopeBindings()
+        ->name('lessons.complete');
     Route::inertia('labs', 'labs')->name('labs');
     Route::inertia('progress', 'progress')->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');

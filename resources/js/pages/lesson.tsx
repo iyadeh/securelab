@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
@@ -11,14 +11,21 @@ import {
     Clock3,
     FlaskConical,
     Microscope,
+    Play,
     Search,
     ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { learn } from '@/routes';
 import { show as showLearningPath } from '@/routes/learning-paths';
-import { show as showLesson } from '@/routes/lessons';
+import {
+    complete as completeLesson,
+    show as showLesson,
+    start as startLesson,
+} from '@/routes/lessons';
 
 type LessonState = 'not_started' | 'in_progress' | 'completed';
 
@@ -259,6 +266,44 @@ export default function LessonPage({
                                 </span>
                             )}
                         </div>
+                        {lesson.state === 'not_started' && (
+                            <div className="bg-muted/25 mt-6 flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium">
+                                        Ready to work through this lesson?
+                                    </p>
+                                    <p className="text-muted-foreground text-sm leading-5">
+                                        Starting records your progress without
+                                        changing access to the material.
+                                    </p>
+                                </div>
+                                <Form
+                                    {...startLesson.form({
+                                        learningPath: learningPath.slug,
+                                        lesson: lesson.slug,
+                                    })}
+                                    options={{ preserveScroll: true }}
+                                >
+                                    {({ processing }) => (
+                                        <Button
+                                            type="submit"
+                                            disabled={processing}
+                                            aria-busy={processing}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            {processing ? (
+                                                <Spinner />
+                                            ) : (
+                                                <Play aria-hidden="true" />
+                                            )}
+                                            {processing
+                                                ? 'Starting...'
+                                                : 'Start lesson'}
+                                        </Button>
+                                    )}
+                                </Form>
+                            </div>
+                        )}
                     </header>
 
                     <div className="divide-y">
@@ -349,6 +394,75 @@ export default function LessonPage({
                                 </div>
                             </div>
                         </aside>
+                    )}
+
+                    {lesson.state === 'in_progress' && (
+                        <section
+                            aria-labelledby="complete-lesson-heading"
+                            className="mt-10 flex flex-col gap-5 border-t pt-8 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                            <div className="space-y-1">
+                                <h2
+                                    id="complete-lesson-heading"
+                                    className="text-base font-semibold"
+                                >
+                                    Finished reviewing this lesson?
+                                </h2>
+                                <p className="text-muted-foreground text-sm leading-6">
+                                    Mark it complete when you are ready to move
+                                    through the curriculum.
+                                </p>
+                            </div>
+                            <Form
+                                {...completeLesson.form({
+                                    learningPath: learningPath.slug,
+                                    lesson: lesson.slug,
+                                })}
+                                options={{ preserveScroll: true }}
+                            >
+                                {({ processing }) => (
+                                    <Button
+                                        type="submit"
+                                        disabled={processing}
+                                        aria-busy={processing}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        {processing ? (
+                                            <Spinner />
+                                        ) : (
+                                            <CheckCircle2 aria-hidden="true" />
+                                        )}
+                                        {processing
+                                            ? 'Completing...'
+                                            : 'Complete lesson'}
+                                    </Button>
+                                )}
+                            </Form>
+                        </section>
+                    )}
+
+                    {lesson.state === 'completed' && (
+                        <section
+                            aria-labelledby="lesson-completed-heading"
+                            className="border-primary/25 bg-primary/5 mt-10 flex items-start gap-4 rounded-lg border p-5"
+                        >
+                            <CheckCircle2
+                                aria-hidden="true"
+                                className="text-primary mt-0.5 size-5 shrink-0"
+                            />
+                            <div className="space-y-1">
+                                <h2
+                                    id="lesson-completed-heading"
+                                    className="text-sm font-semibold"
+                                >
+                                    Lesson completed
+                                </h2>
+                                <p className="text-muted-foreground text-sm leading-6">
+                                    Your progress is saved. Continue when you
+                                    are ready.
+                                </p>
+                            </div>
+                        </section>
                     )}
 
                     {(previousLesson || nextLesson) && (
