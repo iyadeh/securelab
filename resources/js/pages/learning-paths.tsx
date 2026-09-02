@@ -1,6 +1,14 @@
-import { Head } from '@inertiajs/react';
-import { BookOpen, CheckCircle2, Clock3, Layers3, Map } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import {
+    ArrowRight,
+    BookOpen,
+    CheckCircle2,
+    Clock3,
+    Layers3,
+    Map,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -9,6 +17,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { learn } from '@/routes';
+import { show as showLearningPath } from '@/routes/learning-paths';
 
 type LearningPathOverview = {
     slug: string;
@@ -191,60 +200,80 @@ export default function LearningPaths({ learningPaths }: LearningPathsProps) {
                                             </p>
                                         </div>
 
-                                        <div className="bg-muted/40 flex min-h-20 items-center gap-3 rounded-md border p-4">
-                                            {learningPath.is_complete ? (
-                                                <>
-                                                    <CheckCircle2
-                                                        aria-hidden="true"
-                                                        className="text-primary size-5 shrink-0"
-                                                    />
-                                                    <div className="space-y-1">
-                                                        <p className="text-sm font-medium">
-                                                            Path complete
-                                                        </p>
-                                                        <p className="text-muted-foreground text-xs leading-5">
-                                                            Every lesson in this
-                                                            path is complete.
-                                                        </p>
-                                                    </div>
-                                                </>
-                                            ) : learningPath.next_lesson ? (
-                                                <>
-                                                    <BookOpen
-                                                        aria-hidden="true"
-                                                        className="text-primary size-5 shrink-0"
-                                                    />
-                                                    <div className="min-w-0 space-y-1">
-                                                        <p className="text-muted-foreground text-xs font-medium">
-                                                            Next lesson
-                                                        </p>
-                                                        <p className="text-sm leading-5 font-medium">
-                                                            {
-                                                                learningPath
-                                                                    .next_lesson
-                                                                    .title
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <BookOpen
-                                                        aria-hidden="true"
-                                                        className="text-muted-foreground size-5 shrink-0"
-                                                    />
-                                                    <div className="space-y-1">
-                                                        <p className="text-sm font-medium">
-                                                            No lessons yet
-                                                        </p>
-                                                        <p className="text-muted-foreground text-xs leading-5">
-                                                            Lessons will appear
-                                                            when this path is
-                                                            expanded.
-                                                        </p>
-                                                    </div>
-                                                </>
-                                            )}
+                                        <div className="flex flex-col gap-3">
+                                            <div className="bg-muted/40 flex min-h-20 items-center gap-3 rounded-md border p-4">
+                                                {learningPath.is_complete ? (
+                                                    <>
+                                                        <CheckCircle2
+                                                            aria-hidden="true"
+                                                            className="text-primary size-5 shrink-0"
+                                                        />
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-medium">
+                                                                Path complete
+                                                            </p>
+                                                            <p className="text-muted-foreground text-xs leading-5">
+                                                                Every lesson in
+                                                                this path is
+                                                                complete.
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                ) : learningPath.next_lesson ? (
+                                                    <>
+                                                        <BookOpen
+                                                            aria-hidden="true"
+                                                            className="text-primary size-5 shrink-0"
+                                                        />
+                                                        <div className="min-w-0 space-y-1">
+                                                            <p className="text-muted-foreground text-xs font-medium">
+                                                                Next lesson
+                                                            </p>
+                                                            <p className="text-sm leading-5 font-medium">
+                                                                {
+                                                                    learningPath
+                                                                        .next_lesson
+                                                                        .title
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <BookOpen
+                                                            aria-hidden="true"
+                                                            className="text-muted-foreground size-5 shrink-0"
+                                                        />
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-medium">
+                                                                No lessons yet
+                                                            </p>
+                                                            <p className="text-muted-foreground text-xs leading-5">
+                                                                Lessons will
+                                                                appear when this
+                                                                path is
+                                                                expanded.
+                                                            </p>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            <Button
+                                                asChild
+                                                variant="outline"
+                                                className="w-full justify-between"
+                                            >
+                                                <Link
+                                                    href={showLearningPath(
+                                                        learningPath.slug,
+                                                    )}
+                                                    prefetch
+                                                >
+                                                    View path
+                                                    <ArrowRight aria-hidden="true" />
+                                                </Link>
+                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>

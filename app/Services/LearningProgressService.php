@@ -6,9 +6,11 @@ use App\Models\Lab;
 use App\Models\LearningModule;
 use App\Models\LearningPath;
 use App\Models\Lesson;
+use App\Models\LessonProgress;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class LearningProgressService
 {
@@ -21,49 +23,67 @@ class LearningProgressService
     /**
      * Derive progress and the next lesson for several eagerly loaded paths with one progress query.
      *
-     * @param  Collection<int, LearningPath>  $learningPaths
+     * @param  EloquentCollection<int, LearningPath>  $learningPaths
      * @return array<int, array{progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}, next_lesson: Lesson|null}>
      */
-    public function learningPathOverviews(User $user, Collection $learningPaths): array
+    public function learningPathOverviews(User $user, EloquentCollection $learningPaths): array
     {
         if ($learningPaths->isEmpty()) {
             return [];
         }
 
         $learningPaths->loadMissing('learningModules.lessons');
-        $lessonIds = $learningPaths
-            ->flatMap(fn (LearningPath $learningPath) => $learningPath->learningModules)
-            ->flatMap(fn (LearningModule $learningModule) => $learningModule->lessons)
-            ->pluck('id');
-        $progressByLessonId = $user->lessonProgress()
-            ->whereIn('lesson_id', $lessonIds)
-            ->get(['lesson_id', 'completed_at'])
-            ->keyBy('lesson_id');
+        $lessons = $learningPaths
+            ->flatMap(fn (LearningPath $learningPath): SupportCollection => $this->loadedLessonsForPath($learningPath))
+            ->values();
+        $progressByLessonId = $this->progressByLessonId($user, $lessons);
         $overviews = [];
 
         foreach ($learningPaths as $learningPath) {
-            $lessons = $learningPath->learningModules
-                ->flatMap(fn (LearningModule $learningModule) => $learningModule->lessons);
-            $started = $lessons->filter(
-                fn (Lesson $lesson): bool => $progressByLessonId->has($lesson->id),
-            )->count();
-            $completed = $lessons->filter(
-                fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at !== null,
-            )->count();
-            $counts = $this->progressCounts($lessons->count(), $started, $completed);
-
-            $overviews[$learningPath->id] = [
-                'progress' => [
-                    ...$counts,
-                    'completion_percentage' => $this->completionPercentage($completed, $lessons->count()),
-                ],
-                'next_lesson' => $lessons->first(
-                    fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at === null,
-                ),
-            ];
+            $overviews[$learningPath->id] = $this->summarizeLoadedLessons(
+                $this->loadedLessonsForPath($learningPath),
+                $progressByLessonId,
+            );
         }
 
         return $overviews;
+    }
+
+    /**
+     * Derive path, module, and lesson progress from one eagerly loaded curriculum graph.
+     *
+     * @return array{
+     *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     module_progress: array<int, array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}>,
+     *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
+     *     next_lesson: Lesson|null
+     * }
+     */
+    public function learningPathDetailProgress(User $user, LearningPath $learningPath): array
+    {
+        $learningPath->loadMissing('learningModules.lessons');
+        $lessons = $this->loadedLessonsForPath($learningPath);
+        $progressByLessonId = $this->progressByLessonId($user, $lessons);
+        $overview = $this->summarizeLoadedLessons($lessons, $progressByLessonId);
+        $moduleProgress = [];
+
+        foreach ($learningPath->learningModules as $learningModule) {
+            $moduleProgress[$learningModule->id] = $this->summarizeLoadedLessons(
+                $learningModule->lessons,
+                $progressByLessonId,
+            )['progress'];
+        }
+
+        return [
+            'progress' => $overview['progress'],
+            'module_progress' => $moduleProgress,
+            'lesson_states' => $lessons->mapWithKeys(
+                fn (Lesson $lesson): array => [
+                    $lesson->id => $this->lessonStateFromProgress($progressByLessonId->get($lesson->id)),
+                ],
+            )->all(),
+            'next_lesson' => $overview['next_lesson'],
+        ];
     }
 
     /**
@@ -196,6 +216,76 @@ class LearningProgressService
     private function lessonsForModule(LearningModule $learningModule): Builder
     {
         return Lesson::query()->whereBelongsTo($learningModule, 'learningModule');
+    }
+
+    /**
+     * @return SupportCollection<int, Lesson>
+     */
+    private function loadedLessonsForPath(LearningPath $learningPath): SupportCollection
+    {
+        return $learningPath->learningModules
+            ->flatMap(fn (LearningModule $learningModule): EloquentCollection => $learningModule->lessons)
+            ->values();
+    }
+
+    /**
+     * @param  SupportCollection<int, Lesson>  $lessons
+     * @return EloquentCollection<int, LessonProgress>
+     */
+    private function progressByLessonId(User $user, SupportCollection $lessons): EloquentCollection
+    {
+        if ($lessons->isEmpty()) {
+            return new EloquentCollection;
+        }
+
+        return $user->lessonProgress()
+            ->whereIn('lesson_id', $lessons->pluck('id'))
+            ->get(['lesson_id', 'completed_at'])
+            ->keyBy('lesson_id');
+    }
+
+    /**
+     * @param  SupportCollection<int, Lesson>  $lessons
+     * @param  EloquentCollection<int, LessonProgress>  $progressByLessonId
+     * @return array{progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}, next_lesson: Lesson|null}
+     */
+    private function summarizeLoadedLessons(
+        SupportCollection $lessons,
+        EloquentCollection $progressByLessonId,
+    ): array {
+        $started = $lessons->filter(
+            fn (Lesson $lesson): bool => $progressByLessonId->has($lesson->id),
+        )->count();
+        $completed = $lessons->filter(
+            fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at !== null,
+        )->count();
+        $counts = $this->progressCounts($lessons->count(), $started, $completed);
+
+        return [
+            'progress' => [
+                ...$counts,
+                'completion_percentage' => $this->completionPercentage($completed, $lessons->count()),
+            ],
+            'next_lesson' => $lessons->first(
+                fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at === null,
+            ),
+        ];
+    }
+
+    /**
+     * @return 'not_started'|'in_progress'|'completed'
+     */
+    private function lessonStateFromProgress(?LessonProgress $progress): string
+    {
+        if ($progress === null) {
+            return self::STATE_NOT_STARTED;
+        }
+
+        if ($progress->completed_at !== null) {
+            return self::STATE_COMPLETED;
+        }
+
+        return self::STATE_IN_PROGRESS;
     }
 
     /**
