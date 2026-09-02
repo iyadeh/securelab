@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { learn } from '@/routes';
+import { show as showLesson } from '@/routes/lessons';
 
 type LessonState = 'not_started' | 'in_progress' | 'completed';
 
@@ -451,9 +452,21 @@ export default function LearningPathDetailPage({
                                                                 <div className="min-w-0 space-y-2">
                                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                                                         <h4 className="text-sm leading-5 font-medium sm:text-base">
-                                                                            {
-                                                                                lesson.title
-                                                                            }
+                                                                            <Link
+                                                                                href={showLesson(
+                                                                                    {
+                                                                                        learningPath:
+                                                                                            learningPath.slug,
+                                                                                        lesson: lesson.slug,
+                                                                                    },
+                                                                                )}
+                                                                                prefetch
+                                                                                className="hover:text-primary focus-visible:ring-ring rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                                                                            >
+                                                                                {
+                                                                                    lesson.title
+                                                                                }
+                                                                            </Link>
                                                                         </h4>
                                                                         {lesson.is_next && (
                                                                             <span className="text-primary text-xs font-medium">
