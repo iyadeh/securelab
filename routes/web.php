@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\LabController;
+use App\Http\Controllers\LabSimulationController;
+use App\Http\Controllers\LabWorkspaceController;
 use App\Http\Controllers\LearningPathController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\LessonProgressController;
@@ -29,6 +31,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->scopeBindings()
         ->name('lessons.complete');
     Route::get('labs', [LabController::class, 'index'])->name('labs');
+    Route::get('labs/{lab:slug}/workspace', [LabWorkspaceController::class, 'show'])
+        ->name('labs.workspace');
+    Route::post('labs/{lab:slug}/simulate', [LabSimulationController::class, 'store'])
+        ->name('labs.simulate');
     Route::get('labs/{lab:slug}', [LabController::class, 'show'])->name('labs.show');
     Route::inertia('progress', 'progress')->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');

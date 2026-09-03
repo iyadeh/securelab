@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
+    ArrowRight,
     BookOpen,
     CheckCircle2,
     ChevronRight,
@@ -8,8 +9,10 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { labs as labsRoute } from '@/routes';
+import { workspace as workspaceLab } from '@/routes/labs';
 import { show as showLesson } from '@/routes/lessons';
 
 type LabState = 'not_started' | 'in_progress' | 'completed';
@@ -222,6 +225,16 @@ export default function LabDetailPage({ lab, lesson }: LabDetailPageProps) {
                                             lesson before entering the guided
                                             exercise.
                                         </p>
+                                        <Button
+                                            asChild
+                                            size="sm"
+                                            className="mt-4"
+                                        >
+                                            <Link href={workspaceLab(lab.slug)}>
+                                                Open workspace
+                                                <ArrowRight aria-hidden="true" />
+                                            </Link>
+                                        </Button>
                                     </div>
                                 </div>
                             </aside>
