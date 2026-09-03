@@ -65,4 +65,53 @@ class LabController extends Controller
             })->values(),
         ]);
     }
+
+    /**
+     * Display one lab with its related learning context.
+     */
+    public function show(
+        Request $request,
+        Lab $lab,
+        LearningProgressService $progressService,
+    ): Response {
+        /** @var User $user */
+        $user = $request->user();
+
+        $lab->load([
+            'lessons' => fn (HasMany $query): HasMany => $query
+                ->select(['id', 'lab_id', 'learning_module_id', 'slug', 'title', 'summary'])
+                ->orderBy('slug'),
+            'lessons.learningModule:id,learning_path_id,title',
+            'lessons.learningModule.learningPath:id,slug,title',
+        ]);
+
+        /** @var Lesson|null $lesson */
+        $lesson = $lab->lessons->first();
+
+        return Inertia::render('lab-detail', [
+            'lab' => [
+                'slug' => $lab->slug,
+                'title' => $lab->title,
+                'description' => $lab->description,
+                'vulnerability_type' => $lab->vulnerability_type,
+                'difficulty' => $lab->difficulty,
+                'scenario' => $lab->scenario,
+                'state' => $progressService->labState($user, $lab),
+            ],
+            'lesson' => $lesson === null
+                ? null
+                : [
+                    'slug' => $lesson->slug,
+                    'title' => $lesson->title,
+                    'summary' => $lesson->summary,
+                    'module' => [
+                        'title' => $lesson->learningModule->title,
+                    ],
+                    'learning_path' => [
+                        'slug' => $lesson->learningModule->learningPath->slug,
+                        'title' => $lesson->learningModule->learningPath->title,
+                    ],
+                ],
+        ]);
+    }
 }

@@ -29,6 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->scopeBindings()
         ->name('lessons.complete');
     Route::get('labs', [LabController::class, 'index'])->name('labs');
+    Route::get('labs/{lab:slug}', [LabController::class, 'show'])->name('labs.show');
     Route::inertia('progress', 'progress')->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');
     Route::inertia('profile', 'profile')->name('profile.show');

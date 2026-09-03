@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
+    ArrowRight,
     BookOpen,
     CheckCircle2,
     Circle,
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { labs as labsRoute } from '@/routes';
+import { show as showLab } from '@/routes/labs';
 import { show as showLesson } from '@/routes/lessons';
 
 type LabState = 'not_started' | 'in_progress' | 'completed';
@@ -322,6 +324,21 @@ export default function LabsPage({ summary, labs }: LabsPageProps) {
                                                                 {lab.difficulty}
                                                             </Badge>
                                                         </div>
+                                                        <Button
+                                                            asChild
+                                                            variant="outline"
+                                                            size="sm"
+                                                        >
+                                                            <Link
+                                                                href={showLab(
+                                                                    lab.slug,
+                                                                )}
+                                                                prefetch
+                                                            >
+                                                                View lab
+                                                                <ArrowRight aria-hidden="true" />
+                                                            </Link>
+                                                        </Button>
                                                     </div>
                                                 </CardContent>
                                             </Card>
