@@ -6,6 +6,7 @@ import {
     Circle,
     CircleDot,
     FlaskConical,
+    Play,
     ShieldCheck,
     TriangleAlert,
     type LucideIcon,
@@ -27,7 +28,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { labs as labsRoute } from '@/routes';
-import { show as showLab, simulate as simulateLab } from '@/routes/labs';
+import {
+    complete as completeLab,
+    show as showLab,
+    simulate as simulateLab,
+    start as startLab,
+} from '@/routes/labs';
 
 type LabState = 'not_started' | 'in_progress' | 'completed';
 
@@ -180,6 +186,71 @@ function OutcomeSummary({ result }: { result: SimulationResult }) {
     );
 }
 
+function LabProgressAction({
+    lab,
+    headingLevel = 'h2',
+}: {
+    lab: WorkspaceLab;
+    headingLevel?: 'h2' | 'h3';
+}) {
+    const isStarting = lab.state === 'not_started';
+    const route = isStarting ? startLab : completeLab;
+    const Heading = headingLevel;
+
+    return (
+        <section
+            aria-labelledby="lab-progress-action-heading"
+            className="bg-muted/25 flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+            <div className="space-y-1">
+                <Heading
+                    id="lab-progress-action-heading"
+                    className="text-sm font-semibold"
+                >
+                    {isStarting
+                        ? 'Ready to track this lab?'
+                        : 'Finished reviewing the exercise?'}
+                </Heading>
+                <p className="text-muted-foreground text-sm leading-6">
+                    {isStarting
+                        ? 'Starting records this lab as in progress. The safe simulation remains available before you start.'
+                        : 'Mark it complete after working through the simulation and defensive guidance.'}
+                </p>
+            </div>
+            <Form
+                {...route.form({ lab: lab.slug })}
+                options={{ preserveScroll: true }}
+                disableWhileProcessing
+                className="shrink-0"
+            >
+                {({ processing }) => (
+                    <Button
+                        type="submit"
+                        disabled={processing}
+                        aria-busy={processing}
+                        className="w-full sm:w-auto"
+                    >
+                        {processing ? (
+                            <Spinner />
+                        ) : isStarting ? (
+                            <Play aria-hidden="true" />
+                        ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                        )}
+                        {processing
+                            ? isStarting
+                                ? 'Starting...'
+                                : 'Completing...'
+                            : isStarting
+                              ? 'Start lab'
+                              : 'Complete lab'}
+                    </Button>
+                )}
+            </Form>
+        </section>
+    );
+}
+
 export default function LabWorkspacePage({
     lab,
     simulation,
@@ -239,6 +310,13 @@ export default function LabWorkspacePage({
                         </span>
                         <LabStateLabel state={lab.state} />
                     </div>
+                    {(lab.state === 'not_started' ||
+                        (lab.state === 'in_progress' &&
+                            simulation.result === null)) && (
+                        <div className="mt-6">
+                            <LabProgressAction lab={lab} />
+                        </div>
+                    )}
                 </header>
 
                 <Alert className="border-primary/25 bg-primary/5">
@@ -482,6 +560,13 @@ export default function LabWorkspacePage({
                                                 outcome={
                                                     simulation.result.outcome
                                                 }
+                                            />
+                                        )}
+
+                                        {lab.state === 'in_progress' && (
+                                            <LabProgressAction
+                                                lab={lab}
+                                                headingLevel="h3"
                                             />
                                         )}
                                     </div>
