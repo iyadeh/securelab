@@ -130,6 +130,8 @@ test('valid simulation returns an ephemeral deterministic result without progres
         ->where('simulation.result.input.query', $input)
         ->has('simulation.result.steps', 4)
         ->where('simulation.result.steps.0.type', 'input')
+        ->where('simulation.result.steps.1.type', 'application')
+        ->where('simulation.result.steps.2.type', 'decision')
         ->where('simulation.result.steps.3.type', 'output'),
     );
     $this->get($workspace)->assertInertia(
@@ -137,6 +139,50 @@ test('valid simulation returns an ephemeral deterministic result without progres
     );
     $this->assertDatabaseCount('lab_progress', 0);
 });
+
+test('normal and rejected outcomes reach the workspace as structured inert data', function (
+    string $slug,
+    array $input,
+    string $inputKey,
+    string $outcome,
+) {
+    $user = User::factory()->create();
+    $lab = Lab::factory()->create([
+        'slug' => $slug,
+    ]);
+    $workspace = route('labs.workspace', ['lab' => $lab->slug]);
+
+    $this->actingAs($user)
+        ->from($workspace)
+        ->post(route('labs.simulate', ['lab' => $lab->slug]), [
+            'input' => $input,
+        ])
+        ->assertRedirect($workspace);
+
+    $this->get($workspace)->assertInertia(fn (Assert $page) => $page
+        ->where('simulation.result.outcome', $outcome)
+        ->where("simulation.result.input.{$inputKey}", $input[$inputKey])
+        ->has('simulation.result.steps', 4)
+        ->where('simulation.result.steps.0.type', 'input')
+        ->where('simulation.result.steps.1.type', 'application')
+        ->where('simulation.result.steps.2.type', 'decision')
+        ->where('simulation.result.steps.3.type', 'output'),
+    );
+    $this->assertDatabaseCount('lab_progress', 0);
+})->with([
+    'normal behavior' => [
+        'reflected-xss',
+        ['query' => 'security basics'],
+        'query',
+        'normal_behavior',
+    ],
+    'rejected request' => [
+        'idor',
+        ['resource_id' => '9999'],
+        'resource_id',
+        'rejected',
+    ],
+]);
 
 test('simulation validates field types and conservative input limits', function () {
     $user = User::factory()->create();

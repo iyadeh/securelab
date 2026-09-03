@@ -1,12 +1,20 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
+    CircleSlash2,
     CheckCircle2,
     ChevronRight,
     Circle,
     CircleDot,
     FlaskConical,
     ShieldCheck,
+    TriangleAlert,
+    type LucideIcon,
 } from 'lucide-react';
+import {
+    SimulationTrace,
+    type SimulationOutcome,
+    type SimulationTraceStep,
+} from '@/components/labs/simulation-trace';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,10 +28,6 @@ import { show as showLab, simulate as simulateLab } from '@/routes/labs';
 type LabState = 'not_started' | 'in_progress' | 'completed';
 
 type LabDifficulty = 'easy' | 'medium' | 'hard';
-
-type SimulationOutcome = 'normal_behavior' | 'vulnerable_behavior' | 'rejected';
-
-type SimulationStepType = 'input' | 'application' | 'decision' | 'output';
 
 type WorkspaceLab = {
     slug: string;
@@ -42,18 +46,11 @@ type SimulationField = {
     max_length: number;
 };
 
-type SimulationStep = {
-    key: string;
-    type: SimulationStepType;
-    label: string;
-    description: string;
-};
-
 type SimulationResult = {
     outcome: SimulationOutcome;
     summary: string;
     input: Record<string, string>;
-    steps: SimulationStep[];
+    steps: SimulationTraceStep[];
 };
 
 type SimulationDefinition = {
@@ -73,10 +70,40 @@ type SimulationFormData = {
     simulation?: string;
 };
 
-const outcomeLabels: Record<SimulationOutcome, string> = {
-    normal_behavior: 'Normal behavior',
-    vulnerable_behavior: 'Vulnerable behavior simulated',
-    rejected: 'Rejected',
+type OutcomePresentation = {
+    label: string;
+    context: string;
+    icon: LucideIcon;
+    containerClassName: string;
+    iconClassName: string;
+};
+
+const outcomePresentations: Record<SimulationOutcome, OutcomePresentation> = {
+    normal_behavior: {
+        label: 'Normal behavior',
+        context:
+            'The fictional application followed the expected modeled behavior.',
+        icon: CheckCircle2,
+        containerClassName: 'border-primary/25 bg-primary/5',
+        iconClassName: 'text-primary',
+    },
+    vulnerable_behavior: {
+        label: 'Vulnerable behavior modeled',
+        context:
+            'The fictional application would allow an insecure outcome. This result does not complete the lab.',
+        icon: TriangleAlert,
+        containerClassName:
+            'border-amber-500/30 bg-amber-500/5 dark:border-amber-400/25',
+        iconClassName: 'text-amber-600 dark:text-amber-400',
+    },
+    rejected: {
+        label: 'Request rejected',
+        context:
+            'The synthetic request was rejected or did not reach the modeled condition. This is not a learner failure.',
+        icon: CircleSlash2,
+        containerClassName: 'border-border bg-muted/30',
+        iconClassName: 'text-muted-foreground',
+    },
 };
 
 function formatVulnerabilityType(vulnerabilityType: string): string {
@@ -113,6 +140,38 @@ function LabStateLabel({ state }: { state: LabState }) {
             <Circle aria-hidden="true" className="size-4" />
             Not started
         </span>
+    );
+}
+
+function OutcomeSummary({ result }: { result: SimulationResult }) {
+    const presentation = outcomePresentations[result.outcome];
+    const Icon = presentation.icon;
+
+    return (
+        <div
+            className={`rounded-lg border p-4 ${presentation.containerClassName}`}
+        >
+            <div className="flex items-start gap-3">
+                <Icon
+                    aria-hidden="true"
+                    className={`mt-0.5 size-4 shrink-0 ${presentation.iconClassName}`}
+                />
+                <div className="min-w-0 space-y-2">
+                    <div>
+                        <p className="font-mono text-[0.6875rem] font-medium tracking-wide uppercase">
+                            Simulated outcome
+                        </p>
+                        <h3 className="mt-1 text-sm font-semibold">
+                            {presentation.label}
+                        </h3>
+                    </div>
+                    <p className="text-sm leading-6">{result.summary}</p>
+                    <p className="text-muted-foreground text-xs leading-5">
+                        {presentation.context}
+                    </p>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -344,24 +403,25 @@ export default function LabWorkspacePage({
                             <CardContent className="px-5 py-5 sm:px-6 sm:py-6">
                                 {simulation.result ? (
                                     <div className="space-y-6">
-                                        <div className="space-y-3">
-                                            <Badge variant="outline">
-                                                {
-                                                    outcomeLabels[
-                                                        simulation.result
-                                                            .outcome
-                                                    ]
-                                                }
-                                            </Badge>
-                                            <p className="text-sm leading-6">
-                                                {simulation.result.summary}
-                                            </p>
-                                        </div>
+                                        <OutcomeSummary
+                                            result={simulation.result}
+                                        />
 
-                                        <div className="space-y-2">
-                                            <h3 className="text-sm font-semibold">
-                                                Submitted data
-                                            </h3>
+                                        <section
+                                            aria-labelledby="submitted-data-heading"
+                                            className="space-y-2"
+                                        >
+                                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                                <h3
+                                                    id="submitted-data-heading"
+                                                    className="text-sm font-semibold"
+                                                >
+                                                    Submitted data
+                                                </h3>
+                                                <span className="text-muted-foreground font-mono text-[0.6875rem] tracking-wide uppercase">
+                                                    Inert text
+                                                </span>
+                                            </div>
                                             <dl className="divide-y rounded-md border">
                                                 {Object.entries(
                                                     simulation.result.input,
@@ -383,51 +443,32 @@ export default function LabWorkspacePage({
                                                     </div>
                                                 ))}
                                             </dl>
-                                        </div>
+                                        </section>
 
-                                        <div className="space-y-3">
-                                            <h3 className="text-sm font-semibold">
-                                                Simulation trace
-                                            </h3>
-                                            <ol className="space-y-3">
-                                                {simulation.result.steps.map(
-                                                    (step, index) => (
-                                                        <li
-                                                            key={step.key}
-                                                            className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
-                                                        >
-                                                            <span className="bg-muted flex size-8 items-center justify-center rounded-md border font-mono text-xs font-semibold tabular-nums">
-                                                                {String(
-                                                                    index + 1,
-                                                                ).padStart(
-                                                                    2,
-                                                                    '0',
-                                                                )}
-                                                            </span>
-                                                            <div className="min-w-0 pt-0.5">
-                                                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                                                    <h4 className="text-sm font-medium">
-                                                                        {
-                                                                            step.label
-                                                                        }
-                                                                    </h4>
-                                                                    <span className="text-muted-foreground font-mono text-[0.6875rem] uppercase">
-                                                                        {
-                                                                            step.type
-                                                                        }
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-muted-foreground mt-1 text-sm leading-6 break-words">
-                                                                    {
-                                                                        step.description
-                                                                    }
-                                                                </p>
-                                                            </div>
-                                                        </li>
-                                                    ),
-                                                )}
-                                            </ol>
-                                        </div>
+                                        <section
+                                            aria-labelledby="simulation-flow-heading"
+                                            className="space-y-4"
+                                        >
+                                            <div className="space-y-1">
+                                                <h3
+                                                    id="simulation-flow-heading"
+                                                    className="text-sm font-semibold"
+                                                >
+                                                    Simulation flow
+                                                </h3>
+                                                <p className="text-muted-foreground text-xs leading-5">
+                                                    How the fictional
+                                                    application handled the
+                                                    submitted data.
+                                                </p>
+                                            </div>
+                                            <SimulationTrace
+                                                outcome={
+                                                    simulation.result.outcome
+                                                }
+                                                steps={simulation.result.steps}
+                                            />
+                                        </section>
                                     </div>
                                 ) : (
                                     <div className="flex min-h-48 flex-col items-start justify-center gap-3">
@@ -442,9 +483,9 @@ export default function LabWorkspacePage({
                                                 No result yet
                                             </h3>
                                             <p className="text-muted-foreground text-sm leading-6">
-                                                Submit synthetic input to see
-                                                what the fictional application
-                                                would do.
+                                                Run a safe simulation to inspect
+                                                how input moves through the
+                                                fictional application.
                                             </p>
                                         </div>
                                     </div>
