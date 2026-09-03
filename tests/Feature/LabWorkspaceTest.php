@@ -62,6 +62,7 @@ test('verified users see the canonical safe workspace without starting progress'
             'max_length' => 16,
         ]])
         ->where('simulation.result', null)
+        ->where('simulation.guidance', null)
         ->missing('lab.scenario')
         ->missing('simulation.class')
         ->missing('simulation.runtime'),
@@ -132,10 +133,21 @@ test('valid simulation returns an ephemeral deterministic result without progres
         ->where('simulation.result.steps.0.type', 'input')
         ->where('simulation.result.steps.1.type', 'application')
         ->where('simulation.result.steps.2.type', 'decision')
-        ->where('simulation.result.steps.3.type', 'output'),
+        ->where('simulation.result.steps.3.type', 'output')
+        ->where('simulation.guidance.security_control', 'Context-appropriate output encoding')
+        ->where('simulation.guidance.root_cause', 'The fictional search page places learner-controlled content into an HTML response without encoding it for that output context.')
+        ->where('simulation.guidance.impact', 'A browser would interpret attacker-controlled markup in the fictional page, potentially exposing data or actions available to the affected session.')
+        ->has('simulation.guidance.remediation', 3)
+        ->where('simulation.guidance.secure_behavior', 'A protected search page would encode markup-looking input and display it as inert text instead of executable browser content.')
+        ->where('simulation.guidance.patterns.vulnerable', 'renderHtml(searchInput)')
+        ->where('simulation.guidance.patterns.secure', "safeText = encodeForHtml(searchInput)\nrenderHtmlTemplate(safeText)")
+        ->missing('simulation.guidance.class')
+        ->missing('simulation.guidance.provider'),
     );
     $this->get($workspace)->assertInertia(
-        fn (Assert $page) => $page->where('simulation.result', null),
+        fn (Assert $page) => $page
+            ->where('simulation.result', null)
+            ->where('simulation.guidance', null),
     );
     $this->assertDatabaseCount('lab_progress', 0);
 });
@@ -145,6 +157,7 @@ test('normal and rejected outcomes reach the workspace as structured inert data'
     array $input,
     string $inputKey,
     string $outcome,
+    string $securityControl,
 ) {
     $user = User::factory()->create();
     $lab = Lab::factory()->create([
@@ -166,7 +179,11 @@ test('normal and rejected outcomes reach the workspace as structured inert data'
         ->where('simulation.result.steps.0.type', 'input')
         ->where('simulation.result.steps.1.type', 'application')
         ->where('simulation.result.steps.2.type', 'decision')
-        ->where('simulation.result.steps.3.type', 'output'),
+        ->where('simulation.result.steps.3.type', 'output')
+        ->where('simulation.guidance.security_control', $securityControl)
+        ->has('simulation.guidance.root_cause')
+        ->has('simulation.guidance.remediation')
+        ->has('simulation.guidance.secure_behavior'),
     );
     $this->assertDatabaseCount('lab_progress', 0);
 })->with([
@@ -175,12 +192,14 @@ test('normal and rejected outcomes reach the workspace as structured inert data'
         ['query' => 'security basics'],
         'query',
         'normal_behavior',
+        'Context-appropriate output encoding',
     ],
     'rejected request' => [
         'idor',
         ['resource_id' => '9999'],
         'resource_id',
         'rejected',
+        'Object-level authorization',
     ],
 ]);
 
@@ -230,6 +249,27 @@ test('learner input cannot select a simulator implementation', function () {
     $this->assertDatabaseCount('lab_progress', 0);
 });
 
+test('learner input cannot select or alter lab guidance', function () {
+    $user = User::factory()->create();
+    $lab = Lab::factory()->create([
+        'slug' => 'idor',
+    ]);
+    $workspace = route('labs.workspace', ['lab' => $lab->slug]);
+
+    $this->actingAs($user)
+        ->from($workspace)
+        ->post(route('labs.simulate', ['lab' => $lab->slug]), [
+            'guidance' => [
+                'security_control' => 'Learner-selected control',
+            ],
+            'input' => ['resource_id' => '2002'],
+        ])
+        ->assertRedirect($workspace)
+        ->assertSessionHasErrors('guidance.security_control');
+
+    $this->assertDatabaseCount('lab_progress', 0);
+});
+
 test('simulation POST preserves progress for both current and other users', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
@@ -267,7 +307,8 @@ test('unsupported independent labs fail safely without progress', function () {
         ->where('simulation.supported', false)
         ->where('simulation.instructions', null)
         ->where('simulation.fields', [])
-        ->where('simulation.result', null),
+        ->where('simulation.result', null)
+        ->where('simulation.guidance', null),
     );
 
     $this->actingAs($user)

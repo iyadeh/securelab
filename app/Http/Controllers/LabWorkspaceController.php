@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Lab;
 use App\Models\User;
 use App\Services\Labs\Contracts\LabRuntime;
+use App\Services\Labs\LabGuidanceProvider;
 use App\Services\LearningProgressService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,6 +20,7 @@ class LabWorkspaceController extends Controller
         Request $request,
         Lab $lab,
         LabRuntime $runtime,
+        LabGuidanceProvider $guidanceProvider,
         LearningProgressService $progressService,
     ): Response {
         /** @var User $user */
@@ -28,6 +30,9 @@ class LabWorkspaceController extends Controller
         $result = is_array($flashedResult)
             && ($flashedResult['lab_slug'] ?? null) === $lab->slug
             ? ($flashedResult['result'] ?? null)
+            : null;
+        $guidance = is_array($result)
+            ? $guidanceProvider->guidanceFor($lab)?->toArray()
             : null;
 
         return Inertia::render('lab-workspace', [
@@ -44,6 +49,7 @@ class LabWorkspaceController extends Controller
                 'instructions' => $definition['instructions'] ?? null,
                 'fields' => $definition['fields'] ?? [],
                 'result' => $result,
+                'guidance' => $guidance,
             ],
         ]);
     }

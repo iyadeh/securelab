@@ -11,6 +11,10 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import {
+    SimulationAnalysis,
+    type LabGuidance,
+} from '@/components/labs/simulation-analysis';
+import {
     SimulationTrace,
     type SimulationOutcome,
     type SimulationTraceStep,
@@ -58,6 +62,7 @@ type SimulationDefinition = {
     instructions: string | null;
     fields: SimulationField[];
     result: SimulationResult | null;
+    guidance: LabGuidance | null;
 };
 
 type LabWorkspacePageProps = {
@@ -446,20 +451,21 @@ export default function LabWorkspacePage({
                                         </section>
 
                                         <section
-                                            aria-labelledby="simulation-flow-heading"
+                                            aria-labelledby="simulation-observe-heading"
                                             className="space-y-4"
                                         >
                                             <div className="space-y-1">
                                                 <h3
-                                                    id="simulation-flow-heading"
+                                                    id="simulation-observe-heading"
                                                     className="text-sm font-semibold"
                                                 >
-                                                    Simulation flow
+                                                    Observe
                                                 </h3>
                                                 <p className="text-muted-foreground text-xs leading-5">
-                                                    How the fictional
+                                                    Follow how the fictional
                                                     application handled the
-                                                    submitted data.
+                                                    submitted data from input to
+                                                    output.
                                                 </p>
                                             </div>
                                             <SimulationTrace
@@ -469,6 +475,15 @@ export default function LabWorkspacePage({
                                                 steps={simulation.result.steps}
                                             />
                                         </section>
+
+                                        {simulation.guidance && (
+                                            <SimulationAnalysis
+                                                guidance={simulation.guidance}
+                                                outcome={
+                                                    simulation.result.outcome
+                                                }
+                                            />
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="flex min-h-48 flex-col items-start justify-center gap-3">
