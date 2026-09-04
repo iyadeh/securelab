@@ -11,7 +11,10 @@ export default function AppSidebarLayout({
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
-            <AppContent variant="sidebar" className="min-w-0 overflow-x-clip">
+            <AppContent
+                variant="sidebar"
+                className="min-w-0 overflow-x-clip [--app-header-height:3.5rem] group-has-data-[collapsible=icon]/sidebar-wrapper:[--app-header-height:3rem]"
+            >
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
             </AppContent>

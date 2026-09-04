@@ -258,7 +258,7 @@ export default function LabWorkspacePage({
     return (
         <>
             <Head title={`${lab.title} Workspace`} />
-            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-7 p-4 sm:p-6 lg:p-8">
+            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-7 p-4 sm:p-6 lg:p-8 lg:[--workspace-context-height:4rem]">
                 <nav aria-label="Breadcrumb">
                     <ol className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
                         <li>
@@ -329,8 +329,32 @@ export default function LabWorkspacePage({
                     </AlertDescription>
                 </Alert>
 
+                <aside
+                    aria-label="Current lab"
+                    className="bg-background hidden h-(--workspace-context-height) items-center justify-between gap-6 border-b px-1 lg:sticky lg:top-(--app-header-height) lg:z-20 lg:flex"
+                >
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                            {lab.title}
+                        </p>
+                        <p className="text-muted-foreground mt-0.5 truncate font-mono text-[0.6875rem] font-medium tracking-wide uppercase">
+                            {formatVulnerabilityType(lab.vulnerability_type)}
+                        </p>
+                    </div>
+                    <div className="text-muted-foreground flex shrink-0 items-center gap-3 text-xs">
+                        <span className="capitalize">{lab.difficulty}</span>
+                        <span aria-hidden="true" className="text-border">
+                            /
+                        </span>
+                        <LabStateLabel state={lab.state} />
+                    </div>
+                </aside>
+
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-start">
-                    <section aria-labelledby="simulation-input-heading">
+                    <section
+                        aria-labelledby="simulation-input-heading"
+                        className="lg:sticky lg:top-[calc(var(--app-header-height)+var(--workspace-context-height)+1rem)] lg:z-10"
+                    >
                         <Card className="gap-0 rounded-lg py-0 shadow-none">
                             <CardHeader className="border-b px-5 py-5 sm:px-6">
                                 <h2
