@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\LearningPath;
 use App\Models\Lesson;
 use App\Models\User;
+use App\Services\AchievementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,7 @@ class LessonProgressController extends Controller
         Request $request,
         LearningPath $learningPath,
         Lesson $lesson,
+        AchievementService $achievementService,
     ): RedirectResponse {
         /** @var User $user */
         $user = $request->user();
@@ -54,6 +56,8 @@ class LessonProgressController extends Controller
                 ->whereNull('completed_at')
                 ->update(['completed_at' => $timestamp]);
         }
+
+        $achievementService->syncFor($user);
 
         return $this->redirectToLesson($learningPath, $lesson);
     }

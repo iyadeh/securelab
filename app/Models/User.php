@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, LessonProgress> $lessonProgress
  * @property-read Collection<int, LabProgress> $labProgress
+ * @property-read Collection<int, UserAchievement> $userAchievements
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -43,6 +44,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function labProgress(): HasMany
     {
         return $this->hasMany(LabProgress::class);
+    }
+
+    public function userAchievements(): HasMany
+    {
+        return $this->hasMany(UserAchievement::class);
     }
 
     /**

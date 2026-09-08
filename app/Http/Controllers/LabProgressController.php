@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Lab;
 use App\Models\User;
+use App\Services\AchievementService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -28,8 +29,11 @@ class LabProgressController extends Controller
     /**
      * Mark a lab as completed for the current user.
      */
-    public function complete(Request $request, Lab $lab): RedirectResponse
-    {
+    public function complete(
+        Request $request,
+        Lab $lab,
+        AchievementService $achievementService,
+    ): RedirectResponse {
         /** @var User $user */
         $user = $request->user();
         $timestamp = now();
@@ -47,6 +51,8 @@ class LabProgressController extends Controller
                 ->whereNull('completed_at')
                 ->update(['completed_at' => $timestamp]);
         }
+
+        $achievementService->syncFor($user);
 
         return $this->redirectToWorkspace($lab);
     }
