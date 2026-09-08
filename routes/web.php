@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AchievementController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LabController;
 use App\Http\Controllers\LabProgressController;
@@ -44,7 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('labs.complete');
     Route::get('labs/{lab:slug}', [LabController::class, 'show'])->name('labs.show');
     Route::get('progress', [ProgressController::class, 'index'])->name('progress');
-    Route::inertia('achievements', 'achievements')->name('achievements');
+    Route::get('achievements', [AchievementController::class, 'index'])->name('achievements');
     Route::inertia('profile', 'profile')->name('profile.show');
 });
 
