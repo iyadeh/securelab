@@ -25,7 +25,12 @@ class LearningProgressService
      * Derive progress and the next lesson for several eagerly loaded paths with one progress query.
      *
      * @param  EloquentCollection<int, LearningPath>  $learningPaths
-     * @return array<int, array{progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}, next_lesson: Lesson|null}>
+     * @return array<int, array{
+     *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     state: 'not_started'|'in_progress'|'completed',
+     *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
+     *     next_lesson: Lesson|null
+     * }>
      */
     public function learningPathOverviews(User $user, EloquentCollection $learningPaths): array
     {
@@ -48,6 +53,64 @@ class LearningProgressService
         }
 
         return $overviews;
+    }
+
+    /**
+     * Derive the complete progress-page read model with one lesson-progress query and one lab-progress query.
+     *
+     * @param  EloquentCollection<int, LearningPath>  $learningPaths
+     * @param  EloquentCollection<int, Lab>  $labs
+     * @return array{
+     *     lesson_progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     lab_progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     learning_path_overviews: array<int, array{
+     *         progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *         state: 'not_started'|'in_progress'|'completed',
+     *         lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
+     *         next_lesson: Lesson|null
+     *     }>,
+     *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
+     *     lab_states: array<int, 'not_started'|'in_progress'|'completed'>
+     * }
+     */
+    public function progressOverview(
+        User $user,
+        EloquentCollection $learningPaths,
+        EloquentCollection $labs,
+    ): array {
+        $learningPathOverviews = $this->learningPathOverviews($user, $learningPaths);
+        $labCatalogProgress = $this->labCatalogProgress($user, $labs);
+        $lessonStates = [];
+        $totalLessons = 0;
+        $startedLessons = 0;
+        $completedLessons = 0;
+
+        foreach ($learningPathOverviews as $learningPathOverview) {
+            $lessonStates += $learningPathOverview['lesson_states'];
+            $totalLessons += $learningPathOverview['progress']['total'];
+            $startedLessons += $learningPathOverview['progress']['started'];
+            $completedLessons += $learningPathOverview['progress']['completed'];
+        }
+
+        $lessonProgress = $this->progressCounts($totalLessons, $startedLessons, $completedLessons);
+        $labProgress = $labCatalogProgress['progress'];
+
+        return [
+            'lesson_progress' => [
+                ...$lessonProgress,
+                'completion_percentage' => $this->completionPercentage($completedLessons, $totalLessons),
+            ],
+            'lab_progress' => [
+                ...$labProgress,
+                'completion_percentage' => $this->completionPercentage(
+                    $labProgress['completed'],
+                    $labProgress['total'],
+                ),
+            ],
+            'learning_path_overviews' => $learningPathOverviews,
+            'lesson_states' => $lessonStates,
+            'lab_states' => $labCatalogProgress['lab_states'],
+        ];
     }
 
     /**
@@ -78,11 +141,7 @@ class LearningProgressService
         return [
             'progress' => $overview['progress'],
             'module_progress' => $moduleProgress,
-            'lesson_states' => $lessons->mapWithKeys(
-                fn (Lesson $lesson): array => [
-                    $lesson->id => $this->lessonStateFromProgress($progressByLessonId->get($lesson->id)),
-                ],
-            )->all(),
+            'lesson_states' => $overview['lesson_states'],
             'next_lesson' => $overview['next_lesson'],
         ];
     }
@@ -274,7 +333,12 @@ class LearningProgressService
     /**
      * @param  SupportCollection<int, Lesson>  $lessons
      * @param  EloquentCollection<int, LessonProgress>  $progressByLessonId
-     * @return array{progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}, next_lesson: Lesson|null}
+     * @return array{
+     *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     state: 'not_started'|'in_progress'|'completed',
+     *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
+     *     next_lesson: Lesson|null
+     * }
      */
     private function summarizeLoadedLessons(
         SupportCollection $lessons,
@@ -287,16 +351,40 @@ class LearningProgressService
             fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at !== null,
         )->count();
         $counts = $this->progressCounts($lessons->count(), $started, $completed);
+        $lessonStates = $lessons->mapWithKeys(
+            fn (Lesson $lesson): array => [
+                $lesson->id => $this->lessonStateFromProgress($progressByLessonId->get($lesson->id)),
+            ],
+        )->all();
 
         return [
             'progress' => [
                 ...$counts,
                 'completion_percentage' => $this->completionPercentage($completed, $lessons->count()),
             ],
+            'state' => $this->aggregateState($counts),
+            'lesson_states' => $lessonStates,
             'next_lesson' => $lessons->first(
                 fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at === null,
             ),
         ];
+    }
+
+    /**
+     * @param  array{total: int, started: int, in_progress: int, completed: int, remaining: int}  $counts
+     * @return 'not_started'|'in_progress'|'completed'
+     */
+    private function aggregateState(array $counts): string
+    {
+        if ($counts['total'] > 0 && $counts['completed'] === $counts['total']) {
+            return self::STATE_COMPLETED;
+        }
+
+        if ($counts['started'] > 0) {
+            return self::STATE_IN_PROGRESS;
+        }
+
+        return self::STATE_NOT_STARTED;
     }
 
     /**

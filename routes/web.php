@@ -7,6 +7,7 @@ use App\Http\Controllers\LabWorkspaceController;
 use App\Http\Controllers\LearningPathController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\LessonProgressController;
+use App\Http\Controllers\ProgressController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -41,7 +42,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('labs/{lab:slug}/complete', [LabProgressController::class, 'complete'])
         ->name('labs.complete');
     Route::get('labs/{lab:slug}', [LabController::class, 'show'])->name('labs.show');
-    Route::inertia('progress', 'progress')->name('progress');
+    Route::get('progress', [ProgressController::class, 'index'])->name('progress');
     Route::inertia('achievements', 'achievements')->name('achievements');
     Route::inertia('profile', 'profile')->name('profile.show');
 });
