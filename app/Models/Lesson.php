@@ -42,16 +42,25 @@ class Lesson extends Model
     /** @use HasFactory<LessonFactory> */
     use HasFactory;
 
+    /**
+     * @return BelongsTo<LearningModule, $this>
+     */
     public function learningModule(): BelongsTo
     {
         return $this->belongsTo(LearningModule::class);
     }
 
+    /**
+     * @return BelongsTo<Lab, $this>
+     */
     public function lab(): BelongsTo
     {
         return $this->belongsTo(Lab::class);
     }
 
+    /**
+     * @return HasMany<LessonProgress, $this>
+     */
     public function progress(): HasMany
     {
         return $this->hasMany(LessonProgress::class);

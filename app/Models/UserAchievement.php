@@ -25,11 +25,17 @@ class UserAchievement extends Model
     /** @use HasFactory<UserAchievementFactory> */
     use HasFactory;
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return BelongsTo<Achievement, $this>
+     */
     public function achievement(): BelongsTo
     {
         return $this->belongsTo(Achievement::class);

@@ -28,11 +28,17 @@ class LearningPath extends Model
     /** @use HasFactory<LearningPathFactory> */
     use HasFactory;
 
+    /**
+     * @return HasMany<LearningModule, $this>
+     */
     public function learningModules(): HasMany
     {
         return $this->hasMany(LearningModule::class)->orderBy('position');
     }
 
+    /**
+     * @return HasManyThrough<Lesson, LearningModule, $this>
+     */
     public function lessons(): HasManyThrough
     {
         return $this->hasManyThrough(Lesson::class, LearningModule::class)

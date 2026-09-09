@@ -28,11 +28,17 @@ class LearningModule extends Model
     /** @use HasFactory<LearningModuleFactory> */
     use HasFactory;
 
+    /**
+     * @return BelongsTo<LearningPath, $this>
+     */
     public function learningPath(): BelongsTo
     {
         return $this->belongsTo(LearningPath::class);
     }
 
+    /**
+     * @return HasMany<Lesson, $this>
+     */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class)->orderBy('position');

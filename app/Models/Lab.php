@@ -29,11 +29,17 @@ class Lab extends Model
     /** @use HasFactory<LabFactory> */
     use HasFactory;
 
+    /**
+     * @return HasMany<Lesson, $this>
+     */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class);
     }
 
+    /**
+     * @return HasMany<LabProgress, $this>
+     */
     public function progress(): HasMany
     {
         return $this->hasMany(LabProgress::class);

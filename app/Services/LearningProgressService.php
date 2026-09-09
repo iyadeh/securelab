@@ -351,11 +351,14 @@ class LearningProgressService
             fn (Lesson $lesson): bool => $progressByLessonId->get($lesson->id)?->completed_at !== null,
         )->count();
         $counts = $this->progressCounts($lessons->count(), $started, $completed);
-        $lessonStates = $lessons->mapWithKeys(
-            fn (Lesson $lesson): array => [
-                $lesson->id => $this->lessonStateFromProgress($progressByLessonId->get($lesson->id)),
-            ],
-        )->all();
+        /** @var array<int, 'not_started'|'in_progress'|'completed'> $lessonStates */
+        $lessonStates = [];
+
+        foreach ($lessons as $lesson) {
+            $lessonStates[$lesson->id] = $this->lessonStateFromProgress(
+                $progressByLessonId->get($lesson->id),
+            );
+        }
 
         return [
             'progress' => [

@@ -123,10 +123,10 @@ class LearningPathController extends Controller
                                             'title' => $lesson->lab->title,
                                         ],
                                 ],
-                            )->values(),
+                            )->values()->all(),
                         ];
                     },
-                )->values(),
+                )->values()->all(),
             ],
         ]);
     }

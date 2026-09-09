@@ -7,6 +7,7 @@ use App\Models\Lesson;
 use App\Models\User;
 use App\Services\LearningProgressService;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,10 +24,15 @@ class LabController extends Controller
 
         $labs = Lab::query()
             ->select(['id', 'slug', 'title', 'description', 'vulnerability_type', 'difficulty'])
+            ->with(
+                'lessons',
+                function (Relation $query): void {
+                    $query
+                        ->select(['id', 'lab_id', 'learning_module_id', 'slug', 'title'])
+                        ->orderBy('slug');
+                },
+            )
             ->with([
-                'lessons' => fn (HasMany $query): HasMany => $query
-                    ->select(['id', 'lab_id', 'learning_module_id', 'slug', 'title'])
-                    ->orderBy('slug'),
                 'lessons.learningModule:id,learning_path_id,title',
                 'lessons.learningModule.learningPath:id,slug,title',
             ])

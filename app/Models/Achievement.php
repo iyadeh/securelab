@@ -27,6 +27,9 @@ class Achievement extends Model
     /** @use HasFactory<AchievementFactory> */
     use HasFactory;
 
+    /**
+     * @return HasMany<UserAchievement, $this>
+     */
     public function userAchievements(): HasMany
     {
         return $this->hasMany(UserAchievement::class);

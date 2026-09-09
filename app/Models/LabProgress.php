@@ -26,11 +26,17 @@ class LabProgress extends Model
     /** @use HasFactory<LabProgressFactory> */
     use HasFactory;
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return BelongsTo<Lab, $this>
+     */
     public function lab(): BelongsTo
     {
         return $this->belongsTo(Lab::class);
