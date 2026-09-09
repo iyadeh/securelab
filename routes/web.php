@@ -9,6 +9,7 @@ use App\Http\Controllers\LabWorkspaceController;
 use App\Http\Controllers\LearningPathController;
 use App\Http\Controllers\LessonController;
 use App\Http\Controllers\LessonProgressController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,7 +47,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('labs/{lab:slug}', [LabController::class, 'show'])->name('labs.show');
     Route::get('progress', [ProgressController::class, 'index'])->name('progress');
     Route::get('achievements', [AchievementController::class, 'index'])->name('achievements');
-    Route::inertia('profile', 'profile')->name('profile.show');
+    Route::get('profile', [ProfileController::class, 'index'])->name('profile.show');
 });
 
 require __DIR__.'/settings.php';
