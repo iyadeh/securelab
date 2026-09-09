@@ -69,6 +69,10 @@ class LearningProgressService
      *         lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
      *         next_lesson: Lesson|null
      *     }>,
+     *     learning_module_overviews: array<int, array{
+     *         progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *         state: 'not_started'|'in_progress'|'completed'
+     *     }>,
      *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
      *     lab_states: array<int, 'not_started'|'in_progress'|'completed'>
      * }
@@ -94,6 +98,37 @@ class LearningProgressService
 
         $lessonProgress = $this->progressCounts($totalLessons, $startedLessons, $completedLessons);
         $labProgress = $labCatalogProgress['progress'];
+        $learningModuleOverviews = [];
+
+        foreach ($learningPaths as $learningPath) {
+            foreach ($learningPath->learningModules as $learningModule) {
+                $moduleStates = $learningModule->lessons
+                    ->map(fn (Lesson $lesson): string => $lessonStates[$lesson->id])
+                    ->values();
+                $moduleStarted = $moduleStates
+                    ->filter(fn (string $state): bool => $state !== self::STATE_NOT_STARTED)
+                    ->count();
+                $moduleCompleted = $moduleStates
+                    ->filter(fn (string $state): bool => $state === self::STATE_COMPLETED)
+                    ->count();
+                $moduleProgress = $this->progressCounts(
+                    $moduleStates->count(),
+                    $moduleStarted,
+                    $moduleCompleted,
+                );
+
+                $learningModuleOverviews[$learningModule->id] = [
+                    'progress' => [
+                        ...$moduleProgress,
+                        'completion_percentage' => $this->completionPercentage(
+                            $moduleCompleted,
+                            $moduleStates->count(),
+                        ),
+                    ],
+                    'state' => $this->aggregateState($moduleProgress),
+                ];
+            }
+        }
 
         return [
             'lesson_progress' => [
@@ -108,6 +143,7 @@ class LearningProgressService
                 ),
             ],
             'learning_path_overviews' => $learningPathOverviews,
+            'learning_module_overviews' => $learningModuleOverviews,
             'lesson_states' => $lessonStates,
             'lab_states' => $labCatalogProgress['lab_states'],
         ];
