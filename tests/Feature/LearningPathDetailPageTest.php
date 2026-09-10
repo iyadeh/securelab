@@ -56,10 +56,14 @@ test('verified users can view the canonical learning path by slug', function () 
                 'remaining' => 5,
                 'completion_percentage' => 0,
             ],
+            'learningPath.state' => 'not_started',
             'learningPath.is_complete' => false,
             'learningPath.next_lesson' => [
                 'slug' => 'sql-injection-authentication-bypass',
                 'title' => 'SQL Injection Authentication Bypass',
+                'summary' => 'Understand how unsafe query construction can turn login input into an authentication bypass.',
+                'module_title' => 'Injection',
+                'state' => 'not_started',
             ],
         ])
         ->has('learningPath.modules', 3)
@@ -86,6 +90,7 @@ test('verified users can view the canonical learning path by slug', function () 
             'remaining' => 1,
             'completion_percentage' => 0,
         ])
+        ->where('learningPath.modules.0.state', 'not_started')
         ->where('learningPath.modules.0.is_complete', false)
         ->where('learningPath.modules.0.lessons.0.state', 'not_started')
         ->where('learningPath.modules.0.lessons.0.is_next', true)
@@ -140,6 +145,8 @@ test('detail progress and lesson states are isolated to the current user', funct
             'remaining' => 0,
             'completion_percentage' => 100,
         ])
+        ->where('learningPath.state', 'in_progress')
+        ->where('learningPath.modules.0.state', 'completed')
         ->where('learningPath.modules.0.is_complete', true)
         ->where('learningPath.modules.0.lessons.0.state', 'completed')
         ->where('learningPath.modules.1.lessons.0.state', 'in_progress')
@@ -148,6 +155,9 @@ test('detail progress and lesson states are isolated to the current user', funct
         ->where('learningPath.next_lesson', [
             'slug' => 'reflected-xss',
             'title' => 'Reflected XSS',
+            'summary' => 'Understand how reflected input becomes active browser content when output encoding is missing.',
+            'module_title' => 'Cross-Site Scripting',
+            'state' => 'in_progress',
         ]),
     );
 });
@@ -172,6 +182,7 @@ test('completed paths expose no next lesson and complete modules', function () {
             'remaining' => 0,
             'completion_percentage' => 100,
         ])
+        ->where('learningPath.state', 'completed')
         ->where('learningPath.is_complete', true)
         ->where('learningPath.next_lesson', null)
         ->where(
@@ -221,6 +232,8 @@ test('detail uses explicit curriculum positions and supports an empty module', f
             'remaining' => 0,
             'completion_percentage' => 0,
         ])
+        ->where('learningPath.state', 'not_started')
+        ->where('learningPath.modules.0.state', 'not_started')
         ->where('learningPath.modules.0.is_complete', false)
         ->where(
             'learningPath.modules.1.lessons',
@@ -250,6 +263,7 @@ test('detail safely renders a learning path without modules', function () {
             'remaining' => 0,
             'completion_percentage' => 0,
         ])
+        ->where('learningPath.state', 'not_started')
         ->where('learningPath.is_complete', false)
         ->where('learningPath.next_lesson', null)
         ->has('learningPath.modules', 0),

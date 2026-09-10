@@ -29,7 +29,11 @@ class LearningProgressService
      *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
      *     state: 'not_started'|'in_progress'|'completed',
      *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
-     *     next_lesson: Lesson|null
+     *     next_lesson: Lesson|null,
+     *     module_overviews: array<int, array{
+     *         progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *         state: 'not_started'|'in_progress'|'completed'
+     *     }>
      * }>
      */
     public function learningPathOverviews(User $user, EloquentCollection $learningPaths): array
@@ -46,10 +50,27 @@ class LearningProgressService
         $overviews = [];
 
         foreach ($learningPaths as $learningPath) {
-            $overviews[$learningPath->id] = $this->summarizeLoadedLessons(
+            $pathOverview = $this->summarizeLoadedLessons(
                 $this->loadedLessonsForPath($learningPath),
                 $progressByLessonId,
             );
+            $moduleOverviews = [];
+
+            foreach ($learningPath->learningModules as $learningModule) {
+                $moduleOverview = $this->summarizeLoadedLessons(
+                    $learningModule->lessons,
+                    $progressByLessonId,
+                );
+                $moduleOverviews[$learningModule->id] = [
+                    'progress' => $moduleOverview['progress'],
+                    'state' => $moduleOverview['state'],
+                ];
+            }
+
+            $overviews[$learningPath->id] = [
+                ...$pathOverview,
+                'module_overviews' => $moduleOverviews,
+            ];
         }
 
         return $overviews;
@@ -67,7 +88,11 @@ class LearningProgressService
      *         progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
      *         state: 'not_started'|'in_progress'|'completed',
      *         lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
-     *         next_lesson: Lesson|null
+     *         next_lesson: Lesson|null,
+     *         module_overviews: array<int, array{
+     *             progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *             state: 'not_started'|'in_progress'|'completed'
+     *         }>
      *     }>,
      *     learning_module_overviews: array<int, array{
      *         progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
@@ -88,47 +113,18 @@ class LearningProgressService
         $totalLessons = 0;
         $startedLessons = 0;
         $completedLessons = 0;
+        $learningModuleOverviews = [];
 
         foreach ($learningPathOverviews as $learningPathOverview) {
             $lessonStates += $learningPathOverview['lesson_states'];
             $totalLessons += $learningPathOverview['progress']['total'];
             $startedLessons += $learningPathOverview['progress']['started'];
             $completedLessons += $learningPathOverview['progress']['completed'];
+            $learningModuleOverviews += $learningPathOverview['module_overviews'];
         }
 
         $lessonProgress = $this->progressCounts($totalLessons, $startedLessons, $completedLessons);
         $labProgress = $labCatalogProgress['progress'];
-        $learningModuleOverviews = [];
-
-        foreach ($learningPaths as $learningPath) {
-            foreach ($learningPath->learningModules as $learningModule) {
-                $moduleStates = $learningModule->lessons
-                    ->map(fn (Lesson $lesson): string => $lessonStates[$lesson->id])
-                    ->values();
-                $moduleStarted = $moduleStates
-                    ->filter(fn (string $state): bool => $state !== self::STATE_NOT_STARTED)
-                    ->count();
-                $moduleCompleted = $moduleStates
-                    ->filter(fn (string $state): bool => $state === self::STATE_COMPLETED)
-                    ->count();
-                $moduleProgress = $this->progressCounts(
-                    $moduleStates->count(),
-                    $moduleStarted,
-                    $moduleCompleted,
-                );
-
-                $learningModuleOverviews[$learningModule->id] = [
-                    'progress' => [
-                        ...$moduleProgress,
-                        'completion_percentage' => $this->completionPercentage(
-                            $moduleCompleted,
-                            $moduleStates->count(),
-                        ),
-                    ],
-                    'state' => $this->aggregateState($moduleProgress),
-                ];
-            }
-        }
 
         return [
             'lesson_progress' => [
@@ -154,7 +150,9 @@ class LearningProgressService
      *
      * @return array{
      *     progress: array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int},
+     *     state: 'not_started'|'in_progress'|'completed',
      *     module_progress: array<int, array{total: int, started: int, in_progress: int, completed: int, remaining: int, completion_percentage: int}>,
+     *     module_states: array<int, 'not_started'|'in_progress'|'completed'>,
      *     lesson_states: array<int, 'not_started'|'in_progress'|'completed'>,
      *     next_lesson: Lesson|null
      * }
@@ -166,17 +164,22 @@ class LearningProgressService
         $progressByLessonId = $this->progressByLessonId($user, $lessons);
         $overview = $this->summarizeLoadedLessons($lessons, $progressByLessonId);
         $moduleProgress = [];
+        $moduleStates = [];
 
         foreach ($learningPath->learningModules as $learningModule) {
-            $moduleProgress[$learningModule->id] = $this->summarizeLoadedLessons(
+            $moduleOverview = $this->summarizeLoadedLessons(
                 $learningModule->lessons,
                 $progressByLessonId,
-            )['progress'];
+            );
+            $moduleProgress[$learningModule->id] = $moduleOverview['progress'];
+            $moduleStates[$learningModule->id] = $moduleOverview['state'];
         }
 
         return [
             'progress' => $overview['progress'],
+            'state' => $overview['state'],
             'module_progress' => $moduleProgress,
+            'module_states' => $moduleStates,
             'lesson_states' => $overview['lesson_states'],
             'next_lesson' => $overview['next_lesson'],
         ];

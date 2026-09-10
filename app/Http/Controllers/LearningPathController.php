@@ -25,7 +25,7 @@ class LearningPathController extends Controller
             ->select(['id', 'slug', 'title', 'description', 'difficulty'])
             ->with([
                 'learningModules:id,learning_path_id,title,position',
-                'learningModules.lessons:id,learning_module_id,title,estimated_minutes,position',
+                'learningModules.lessons:id,learning_module_id,slug,title,estimated_minutes,position',
             ])
             ->orderBy('title')
             ->orderBy('slug')
@@ -36,6 +36,12 @@ class LearningPathController extends Controller
             'learningPaths' => $learningPaths->map(function (LearningPath $learningPath) use ($overviews): array {
                 $overview = $overviews[$learningPath->id];
                 $progress = $overview['progress'];
+                $nextLesson = $overview['next_lesson'];
+                $nextModuleTitle = $nextLesson === null
+                    ? null
+                    : $learningPath->learningModules
+                        ->first(fn (LearningModule $learningModule): bool => $learningModule->lessons->contains($nextLesson))
+                        ?->title;
 
                 return [
                     'slug' => $learningPath->slug,
@@ -49,10 +55,29 @@ class LearningPathController extends Controller
                     ),
                     'completed_lessons' => $progress['completed'],
                     'completion_percentage' => $progress['completion_percentage'],
+                    'state' => $overview['state'],
                     'is_complete' => $progress['total'] > 0 && $progress['remaining'] === 0,
-                    'next_lesson' => $overview['next_lesson'] === null
+                    'next_lesson' => $nextLesson === null
                         ? null
-                        : ['title' => $overview['next_lesson']->title],
+                        : [
+                            'slug' => $nextLesson->slug,
+                            'title' => $nextLesson->title,
+                            'module_title' => $nextModuleTitle,
+                            'state' => $overview['lesson_states'][$nextLesson->id],
+                        ],
+                    'modules' => $learningPath->learningModules->map(
+                        function (LearningModule $learningModule) use ($overview): array {
+                            $moduleOverview = $overview['module_overviews'][$learningModule->id];
+
+                            return [
+                                'title' => $learningModule->title,
+                                'lesson_count' => $moduleOverview['progress']['total'],
+                                'completed_lessons' => $moduleOverview['progress']['completed'],
+                                'completion_percentage' => $moduleOverview['progress']['completion_percentage'],
+                                'state' => $moduleOverview['state'],
+                            ];
+                        },
+                    )->values()->all(),
                 ];
             })->values(),
         ]);
@@ -76,6 +101,12 @@ class LearningPathController extends Controller
         ]);
         $detailProgress = $progressService->learningPathDetailProgress($user, $learningPath);
         $pathProgress = $detailProgress['progress'];
+        $nextLesson = $detailProgress['next_lesson'];
+        $nextModuleTitle = $nextLesson === null
+            ? null
+            : $learningPath->learningModules
+                ->first(fn (LearningModule $learningModule): bool => $learningModule->lessons->contains($nextLesson))
+                ?->title;
 
         return Inertia::render('learning-path-detail', [
             'learningPath' => [
@@ -89,12 +120,16 @@ class LearningPathController extends Controller
                     fn (LearningModule $learningModule): int => $learningModule->lessons->sum('estimated_minutes'),
                 ),
                 'progress' => $pathProgress,
+                'state' => $detailProgress['state'],
                 'is_complete' => $pathProgress['total'] > 0 && $pathProgress['remaining'] === 0,
-                'next_lesson' => $detailProgress['next_lesson'] === null
+                'next_lesson' => $nextLesson === null
                     ? null
                     : [
-                        'slug' => $detailProgress['next_lesson']->slug,
-                        'title' => $detailProgress['next_lesson']->title,
+                        'slug' => $nextLesson->slug,
+                        'title' => $nextLesson->title,
+                        'summary' => $nextLesson->summary,
+                        'module_title' => $nextModuleTitle,
+                        'state' => $detailProgress['lesson_states'][$nextLesson->id],
                     ],
                 'modules' => $learningPath->learningModules->map(
                     function (LearningModule $learningModule) use ($detailProgress): array {
@@ -105,6 +140,7 @@ class LearningPathController extends Controller
                             'description' => $learningModule->description,
                             'position' => $learningModule->position,
                             'progress' => $moduleProgress,
+                            'state' => $detailProgress['module_states'][$learningModule->id],
                             'is_complete' => $moduleProgress['total'] > 0 && $moduleProgress['remaining'] === 0,
                             'lessons' => $learningModule->lessons->map(
                                 fn (Lesson $lesson): array => [
