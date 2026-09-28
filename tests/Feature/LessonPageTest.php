@@ -78,6 +78,7 @@ test('verified users can read canonical lesson content without mutating progress
         ->where('nextLesson', [
             'slug' => 'reflected-xss',
             'title' => 'Reflected XSS',
+            'module_title' => 'Cross-Site Scripting',
         ]),
     );
     $this->assertDatabaseCount('lesson_progress', 0);
@@ -167,6 +168,7 @@ test('last canonical lesson has correct previous lesson and no next lesson', fun
         ->where('previousLesson', [
             'slug' => 'idor',
             'title' => 'IDOR',
+            'module_title' => 'Access & Account Security',
         ])
         ->where('nextLesson', null),
     );
@@ -216,10 +218,12 @@ test('curriculum navigation uses explicit positions across module boundaries', f
         ->where('previousLesson', [
             'slug' => $firstLesson->slug,
             'title' => $firstLesson->title,
+            'module_title' => 'Earlier module',
         ])
         ->where('nextLesson', [
             'slug' => $lastLesson->slug,
             'title' => $lastLesson->title,
+            'module_title' => 'Later module',
         ]),
     );
 });

@@ -29,7 +29,8 @@ class LessonController extends Controller
             'lab:id,slug,title,difficulty,vulnerability_type',
         ]);
         $orderedLessons = $learningPath->lessons()
-            ->get(['lessons.id', 'lessons.slug', 'lessons.title']);
+            ->with('learningModule:id,title')
+            ->get(['lessons.id', 'lessons.learning_module_id', 'lessons.slug', 'lessons.title']);
         $currentLessonIndex = $orderedLessons->search(
             fn (Lesson $orderedLesson): bool => $orderedLesson->is($lesson),
         );
@@ -73,7 +74,7 @@ class LessonController extends Controller
     }
 
     /**
-     * @return array{slug: string, title: string}|null
+     * @return array{slug: string, title: string, module_title: string}|null
      */
     private function lessonSummary(?Lesson $lesson): ?array
     {
@@ -84,6 +85,7 @@ class LessonController extends Controller
         return [
             'slug' => $lesson->slug,
             'title' => $lesson->title,
+            'module_title' => $lesson->learningModule->title,
         ];
     }
 }

@@ -1,29 +1,32 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
-    ArrowLeft,
-    ArrowRight,
     BookOpen,
-    Brain,
     CheckCircle2,
     ChevronRight,
-    Circle,
-    CircleDot,
     Clock3,
     FlaskConical,
-    Microscope,
     Play,
-    Search,
-    ShieldCheck,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ProgressStateLabel } from '@/components/dashboard/progress-state-label';
+import {
+    LessonNavigation,
+    type LessonNavigationItem,
+} from '@/components/learning/lesson-navigation';
+import {
+    LessonRoadmap,
+    type LessonRoadmapStage,
+} from '@/components/learning/lesson-roadmap';
+import { LessonSection } from '@/components/learning/lesson-section';
+import { CategoryIcon } from '@/components/security/category-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { learn } from '@/routes';
+import { show as showLab } from '@/routes/labs';
 import { show as showLearningPath } from '@/routes/learning-paths';
 import {
     complete as completeLesson,
-    show as showLesson,
     start as startLesson,
 } from '@/routes/lessons';
 
@@ -56,39 +59,34 @@ type LabSummary = {
     vulnerability_type: string;
 };
 
-type LessonNavigation = null | {
-    slug: string;
-    title: string;
-};
-
 type LessonPageProps = {
     learningPath: LearningPathSummary;
     module: LearningModuleSummary;
     lesson: LessonDetail;
     lab: LabSummary | null;
-    previousLesson: LessonNavigation;
-    nextLesson: LessonNavigation;
+    previousLesson: LessonNavigationItem | null;
+    nextLesson: LessonNavigationItem | null;
 };
 
-type LessonSection = {
-    title: string;
+type LessonSectionData = LessonRoadmapStage & {
     paragraphs: string[];
 };
 
-const sectionIcons: Record<string, LucideIcon> = {
-    Learn: BookOpen,
-    Understand: Brain,
-    Exploit: Search,
-    Analyze: Microscope,
-    Fix: ShieldCheck,
+const stageIds: Record<string, string> = {
+    Learn: 'learn',
+    Understand: 'understand',
+    Exploit: 'exploit',
+    Analyze: 'analyze',
+    Fix: 'fix',
 };
 
-function parseLessonContent(content: string): LessonSection[] {
+function parseLessonContent(content: string): LessonSectionData[] {
     const trimmedContent = content.trim();
 
     if (!trimmedContent.startsWith('## ')) {
         return [
             {
+                id: 'lesson-content',
                 title: 'Lesson content',
                 paragraphs: trimmedContent
                     .split(/\r?\n\s*\r?\n/)
@@ -100,10 +98,11 @@ function parseLessonContent(content: string): LessonSection[] {
     return trimmedContent
         .split(/^##\s+/m)
         .filter(Boolean)
-        .map((block) => {
+        .map((block, index) => {
             const [title, ...bodyLines] = block.trim().split(/\r?\n/);
 
             return {
+                id: stageIds[title] ?? `lesson-section-${index + 1}`,
                 title,
                 paragraphs: bodyLines
                     .join('\n')
@@ -114,75 +113,8 @@ function parseLessonContent(content: string): LessonSection[] {
         });
 }
 
-function LessonStateLabel({ state }: { state: LessonState }) {
-    if (state === 'completed') {
-        return (
-            <span className="text-primary inline-flex items-center gap-1.5 text-sm font-medium">
-                <CheckCircle2 aria-hidden="true" className="size-4" />
-                Completed
-            </span>
-        );
-    }
-
-    if (state === 'in_progress') {
-        return (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                <CircleDot aria-hidden="true" className="text-primary size-4" />
-                In progress
-            </span>
-        );
-    }
-
-    return (
-        <span className="text-muted-foreground inline-flex items-center gap-1.5 text-sm font-medium">
-            <Circle aria-hidden="true" className="size-4" />
-            Not started
-        </span>
-    );
-}
-
-function CurriculumLink({
-    direction,
-    lesson,
-    learningPath,
-}: {
-    direction: 'previous' | 'next';
-    lesson: Exclude<LessonNavigation, null>;
-    learningPath: LearningPathSummary;
-}) {
-    const isPrevious = direction === 'previous';
-
-    return (
-        <Link
-            href={showLesson({
-                learningPath: learningPath.slug,
-                lesson: lesson.slug,
-            })}
-            prefetch
-            className="hover:border-primary/50 hover:bg-muted/30 focus-visible:ring-ring group flex min-h-24 flex-col justify-center gap-2 rounded-lg border px-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-        >
-            <span
-                className={`text-muted-foreground flex items-center gap-1.5 text-xs font-medium ${
-                    isPrevious ? '' : 'justify-end'
-                }`}
-            >
-                {isPrevious && (
-                    <ArrowLeft aria-hidden="true" className="size-3.5" />
-                )}
-                {isPrevious ? 'Previous lesson' : 'Next lesson'}
-                {!isPrevious && (
-                    <ArrowRight aria-hidden="true" className="size-3.5" />
-                )}
-            </span>
-            <span
-                className={`group-hover:text-primary text-sm leading-5 font-medium ${
-                    isPrevious ? '' : 'text-right'
-                }`}
-            >
-                {lesson.title}
-            </span>
-        </Link>
-    );
+function formatVulnerabilityType(vulnerabilityType: string): string {
+    return vulnerabilityType.replaceAll('_', ' ');
 }
 
 export default function LessonPage({
@@ -231,168 +163,204 @@ export default function LessonPage({
                     </ol>
                 </nav>
 
-                <article className="mx-auto w-full max-w-3xl">
+                <article className="mx-auto w-full max-w-4xl">
                     <header className="border-b pb-8">
-                        <p className="text-primary font-mono text-xs font-medium tracking-wide uppercase">
-                            Module {learningModule.position} / Lesson{' '}
-                            {lesson.position}
-                        </p>
-                        <h1 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
-                            {lesson.title}
-                        </h1>
-                        <p className="text-muted-foreground mt-4 max-w-2xl text-base leading-7 sm:text-lg">
-                            {lesson.summary}
-                        </p>
-                        <div className="text-muted-foreground mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-                            <span className="inline-flex items-center gap-1.5">
+                        <div className="flex items-start gap-4">
+                            <CategoryIcon
+                                category={learningModule.title}
+                                size="lg"
+                            />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-primary font-mono text-xs font-medium tracking-[0.14em] uppercase">
+                                    Module {learningModule.position} · Lesson{' '}
+                                    {lesson.position}
+                                </p>
+                                <p className="text-muted-foreground mt-2 text-sm font-medium">
+                                    {learningModule.title}
+                                </p>
+                                <h1 className="mt-2 max-w-3xl text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
+                                    {lesson.title}
+                                </h1>
+                                <p className="text-muted-foreground mt-4 max-w-3xl text-base leading-7 sm:text-lg">
+                                    {lesson.summary}
+                                </p>
+                            </div>
+                        </div>
+
+                        <dl className="text-muted-foreground mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
+                            <div className="inline-flex items-center gap-1.5">
                                 <BookOpen
                                     aria-hidden="true"
                                     className="size-4"
                                 />
-                                {learningModule.title}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
+                                <dt className="sr-only">Learning path</dt>
+                                <dd>{learningPath.title}</dd>
+                            </div>
+                            <div className="inline-flex items-center gap-1.5">
                                 <Clock3 aria-hidden="true" className="size-4" />
-                                {lesson.estimated_minutes} min
-                            </span>
-                            <LessonStateLabel state={lesson.state} />
+                                <dt className="sr-only">Estimated duration</dt>
+                                <dd>{lesson.estimated_minutes} min</dd>
+                            </div>
+                            <div className="inline-flex items-center gap-1.5">
+                                <dt className="sr-only">Lesson state</dt>
+                                <dd className="inline-flex flex-wrap items-center gap-1.5">
+                                    <ProgressStateLabel state={lesson.state} />
+                                    {lesson.state === 'completed' && (
+                                        <span>· Available for review</span>
+                                    )}
+                                </dd>
+                            </div>
                             {lab && (
-                                <span className="inline-flex items-center gap-1.5">
+                                <div className="inline-flex items-center gap-1.5">
                                     <FlaskConical
                                         aria-hidden="true"
                                         className="size-4"
                                     />
-                                    Guided lab included
-                                </span>
-                            )}
-                        </div>
-                        {lesson.state === 'not_started' && (
-                            <div className="bg-muted/25 mt-6 flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-sm font-medium">
-                                        Ready to work through this lesson?
-                                    </p>
-                                    <p className="text-muted-foreground text-sm leading-5">
-                                        Starting records your progress without
-                                        changing access to the material.
-                                    </p>
+                                    <dt className="sr-only">Guided lab</dt>
+                                    <dd>Guided lab available</dd>
                                 </div>
-                                <Form
-                                    {...startLesson.form({
-                                        learningPath: learningPath.slug,
-                                        lesson: lesson.slug,
-                                    })}
-                                    options={{ preserveScroll: true }}
-                                >
-                                    {({ processing }) => (
-                                        <Button
-                                            type="submit"
-                                            disabled={processing}
-                                            aria-busy={processing}
-                                            className="w-full sm:w-auto"
-                                        >
-                                            {processing ? (
-                                                <Spinner />
-                                            ) : (
-                                                <Play aria-hidden="true" />
-                                            )}
-                                            {processing
-                                                ? 'Starting...'
-                                                : 'Start lesson'}
-                                        </Button>
-                                    )}
-                                </Form>
-                            </div>
-                        )}
+                            )}
+                        </dl>
                     </header>
 
-                    <div className="divide-y">
-                        {sections.map((section, index) => {
-                            const SectionIcon =
-                                sectionIcons[section.title] ?? BookOpen;
-
-                            return (
-                                <section
-                                    key={`${section.title}-${index}`}
-                                    aria-labelledby={`lesson-section-${index}`}
-                                    className="grid gap-5 py-8 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:py-10"
-                                >
-                                    <div className="flex items-center gap-3 sm:block">
-                                        <span className="bg-muted flex size-9 items-center justify-center rounded-md border font-mono text-xs font-semibold tabular-nums">
-                                            {String(index + 1).padStart(2, '0')}
-                                        </span>
-                                        <SectionIcon
-                                            aria-hidden="true"
-                                            className="text-muted-foreground mt-3 hidden size-4 sm:block"
-                                        />
-                                    </div>
-                                    <div>
+                    {lesson.state === 'not_started' && (
+                        <section
+                            aria-labelledby="start-lesson-heading"
+                            className="mt-6"
+                        >
+                            <Card className="gap-0 rounded-lg py-0 shadow-none">
+                                <CardContent className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="space-y-1">
                                         <h2
-                                            id={`lesson-section-${index}`}
-                                            className="text-xl font-semibold tracking-tight"
+                                            id="start-lesson-heading"
+                                            className="text-sm font-medium"
                                         >
-                                            {section.title}
+                                            Ready to begin?
                                         </h2>
-                                        <div className="text-foreground/90 mt-4 space-y-4 text-base leading-7">
-                                            {section.paragraphs.map(
-                                                (paragraph, paragraphIndex) => (
-                                                    <p
-                                                        key={`${section.title}-${paragraphIndex}`}
-                                                    >
-                                                        {paragraph}
-                                                    </p>
-                                                ),
-                                            )}
-                                        </div>
+                                        <p className="text-muted-foreground text-sm leading-5">
+                                            Starting records progress without
+                                            restricting lesson access.
+                                        </p>
                                     </div>
-                                </section>
-                            );
-                        })}
+                                    <Form
+                                        {...startLesson.form({
+                                            learningPath: learningPath.slug,
+                                            lesson: lesson.slug,
+                                        })}
+                                        options={{ preserveScroll: true }}
+                                    >
+                                        {({ processing }) => (
+                                            <Button
+                                                type="submit"
+                                                disabled={processing}
+                                                aria-busy={processing}
+                                                className="w-full sm:w-auto"
+                                            >
+                                                {processing ? (
+                                                    <Spinner />
+                                                ) : (
+                                                    <Play aria-hidden="true" />
+                                                )}
+                                                {processing
+                                                    ? 'Starting...'
+                                                    : 'Start lesson'}
+                                            </Button>
+                                        )}
+                                    </Form>
+                                </CardContent>
+                            </Card>
+                        </section>
+                    )}
+
+                    <section
+                        aria-labelledby="lesson-roadmap-heading"
+                        className="mt-8 space-y-3"
+                    >
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <h2
+                                id="lesson-roadmap-heading"
+                                className="text-sm font-semibold"
+                            >
+                                Lesson roadmap
+                            </h2>
+                            <p className="text-muted-foreground text-xs">
+                                Educational structure, not tracked progress
+                            </p>
+                        </div>
+                        <LessonRoadmap
+                            stages={sections.map(({ id, title }) => ({
+                                id,
+                                title,
+                            }))}
+                        />
+                    </section>
+
+                    <div className="mt-6">
+                        {sections.map((section, index) => (
+                            <LessonSection
+                                key={section.id}
+                                id={section.id}
+                                position={index + 1}
+                                title={section.title}
+                                paragraphs={section.paragraphs}
+                            />
+                        ))}
                     </div>
 
                     {lab && (
                         <aside
                             aria-labelledby="guided-lab-heading"
-                            className="bg-muted/25 mt-2 rounded-lg border p-5 sm:p-6"
+                            className="mt-2"
                         >
-                            <div className="flex items-start gap-4">
-                                <div className="bg-background flex size-10 shrink-0 items-center justify-center rounded-md border">
-                                    <FlaskConical
-                                        aria-hidden="true"
-                                        className="text-primary size-5"
-                                    />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-primary text-xs font-medium">
-                                        Guided lab available
-                                    </p>
-                                    <h2
-                                        id="guided-lab-heading"
-                                        className="mt-1 text-base font-semibold"
-                                    >
-                                        {lab.title}
-                                    </h2>
-                                    <p className="text-muted-foreground mt-2 text-sm leading-6">
-                                        Practice this lesson in a safe simulated
-                                        environment. Lab access arrives in a
-                                        later milestone.
-                                    </p>
-                                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                                        <Badge
-                                            variant="outline"
-                                            className="capitalize"
-                                        >
-                                            {lab.difficulty}
-                                        </Badge>
-                                        <span className="text-muted-foreground font-mono text-xs">
-                                            {lab.vulnerability_type.replaceAll(
-                                                '_',
-                                                ' ',
-                                            )}
-                                        </span>
+                            <Card className="gap-0 rounded-lg py-0 shadow-none">
+                                <CardContent className="flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                                    <div className="flex min-w-0 items-start gap-4">
+                                        <CategoryIcon
+                                            category="labs"
+                                            size="md"
+                                        />
+                                        <div className="min-w-0 space-y-2">
+                                            <p className="text-primary text-xs font-medium">
+                                                Practice this concept
+                                            </p>
+                                            <h2
+                                                id="guided-lab-heading"
+                                                className="text-lg font-semibold"
+                                            >
+                                                {lab.title}
+                                            </h2>
+                                            <p className="text-muted-foreground max-w-xl text-sm leading-6">
+                                                Apply this lesson in
+                                                SecureLab&apos;s safe,
+                                                deterministic simulation.
+                                            </p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="capitalize"
+                                                >
+                                                    {lab.difficulty}
+                                                </Badge>
+                                                <span className="text-muted-foreground font-mono text-xs capitalize">
+                                                    {formatVulnerabilityType(
+                                                        lab.vulnerability_type,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="w-full shrink-0 sm:w-auto"
+                                    >
+                                        <Link href={showLab(lab.slug)} prefetch>
+                                            View lab
+                                            <FlaskConical aria-hidden="true" />
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
                         </aside>
                     )}
 
@@ -409,8 +377,8 @@ export default function LessonPage({
                                     Finished reviewing this lesson?
                                 </h2>
                                 <p className="text-muted-foreground text-sm leading-6">
-                                    Mark it complete when you are ready to move
-                                    through the curriculum.
+                                    Completion is explicit and separate from
+                                    next-lesson navigation.
                                 </p>
                             </div>
                             <Form
@@ -458,36 +426,20 @@ export default function LessonPage({
                                     Lesson completed
                                 </h2>
                                 <p className="text-muted-foreground text-sm leading-6">
-                                    Your progress is saved. Continue when you
-                                    are ready.
+                                    Progress is saved. This lesson remains
+                                    available for review.
                                 </p>
                             </div>
                         </section>
                     )}
 
-                    {(previousLesson || nextLesson) && (
-                        <nav
-                            aria-label="Curriculum navigation"
-                            className="mt-10 grid gap-3 border-t pt-8 sm:grid-cols-2"
-                        >
-                            {previousLesson ? (
-                                <CurriculumLink
-                                    direction="previous"
-                                    lesson={previousLesson}
-                                    learningPath={learningPath}
-                                />
-                            ) : (
-                                <div aria-hidden="true" />
-                            )}
-                            {nextLesson && (
-                                <CurriculumLink
-                                    direction="next"
-                                    lesson={nextLesson}
-                                    learningPath={learningPath}
-                                />
-                            )}
-                        </nav>
-                    )}
+                    <div className="mt-10">
+                        <LessonNavigation
+                            learningPath={learningPath}
+                            previousLesson={previousLesson}
+                            nextLesson={nextLesson}
+                        />
+                    </div>
                 </article>
             </main>
         </>
