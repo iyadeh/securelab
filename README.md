@@ -3,6 +3,7 @@
 SecureLab is an interactive web security learning platform built to help software engineers, computer science students, and security practitioners understand common web vulnerabilities from both the **attacker** and **defender** perspectives.
 
 Instead of only demonstrating payloads, SecureLab grounds every vulnerability in software engineering reality:
+
 - How does the vulnerability arise in application code?
 - How does untrusted data flow through the system?
 - What is the underlying root cause and security impact?
@@ -42,7 +43,7 @@ SecureLab V1 uses a **controlled, deterministic in-memory simulation runtime** (
 - **Structured Curriculum**: Progressive learning paths divided into modules and ordered lessons, with estimated completion times and reading outlines.
 - **Interactive Lab Workspaces**: Dedicated lab workspace interfaces where learners test inputs against simulated web scenarios.
 - **Attack Flow Visualization**: Step-by-step trace showing data propagation across input, application, security decision, and output boundaries.
-- **Side-by-Side Remediation Guidance**: Clear, contextual explanations detailing root causes, impact levels, and syntax-highlighted *Vulnerable vs. Secure* implementation patterns.
+- **Side-by-Side Remediation Guidance**: Clear, contextual explanations detailing root causes, impact levels, and syntax-highlighted _Vulnerable vs. Secure_ implementation patterns.
 - **Authoritative Progress Tracking**: Reliable, server-side progress calculation (`not_started`, `in_progress`, `completed`) with half-up completion percentage metrics.
 - **Achievement System**: Server-validated achievement unlocks recognizing key milestones (first lesson, first lab, full path completion, and full curriculum mastery).
 - **Developer-Tool Aesthetic**: Restrained dark-mode interface built with high information density, semantic status colors, and monospace code typography.
@@ -53,19 +54,20 @@ SecureLab V1 uses a **controlled, deterministic in-memory simulation runtime** (
 
 SecureLab includes five core security labs covering OWASP Top 10 concepts:
 
-| Lab | Vulnerability Category | Difficulty | Focus Area |
-| :--- | :--- | :--- | :--- |
-| **SQL Injection Authentication Bypass** | Injection | Easy | Unsafe SQL query construction vs. parameterized statements |
-| **Reflected XSS** | Cross-Site Scripting | Easy | Immediate input reflection and context-aware output encoding |
-| **Stored XSS** | Cross-Site Scripting | Medium | Persisted untrusted content and output encoding boundaries |
-| **Broken Access Control (IDOR)** | Access & Account Security | Easy | Missing server-side authorization checks on object identifiers |
-| **Weak Password Reset** | Access & Account Security | Medium | Predictable reset token workflows and secure token validation |
+| Lab                                     | Vulnerability Category    | Difficulty | Focus Area                                                     |
+| :-------------------------------------- | :------------------------ | :--------- | :------------------------------------------------------------- |
+| **SQL Injection Authentication Bypass** | Injection                 | Easy       | Unsafe SQL query construction vs. parameterized statements     |
+| **Reflected XSS**                       | Cross-Site Scripting      | Easy       | Immediate input reflection and context-aware output encoding   |
+| **Stored XSS**                          | Cross-Site Scripting      | Medium     | Persisted untrusted content and output encoding boundaries     |
+| **Broken Access Control (IDOR)**        | Access & Account Security | Easy       | Missing server-side authorization checks on object identifiers |
+| **Weak Password Reset**                 | Access & Account Security | Medium     | Predictable reset token workflows and secure token validation  |
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Backend
+
 - **Framework**: [Laravel 13](https://laravel.com) running on PHP 8.4
 - **Architecture**: Modular Monolith with dedicated domain service layers
 - **Authentication**: [Laravel Fortify](https://laravel.com/docs/fortify) (with email verification enforced)
@@ -73,6 +75,7 @@ SecureLab includes five core security labs covering OWASP Top 10 concepts:
 - **Database**: PostgreSQL (production & local development) / SQLite `:memory:` (automated testing)
 
 ### Frontend
+
 - **SPA Framework**: [Inertia.js v3](https://inertiajs.com) with [React 19](https://react.dev)
 - **Language**: TypeScript 5.7
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com) via `@tailwindcss/vite`
@@ -80,6 +83,7 @@ SecureLab includes five core security labs covering OWASP Top 10 concepts:
 - **Build Tool**: [Vite 8](https://vitejs.dev)
 
 ### Quality & Testing
+
 - **Test Framework**: [Pest PHP 5](https://pestphp.com) (Feature and Unit test suites)
 - **Static Analysis**: [PHPStan](https://phpstan.org) / [Larastan](https://github.com/larastan/larastan) (Level 7)
 - **Code Formatter**: [Laravel Pint](https://laravel.com/docs/pint)
@@ -130,6 +134,7 @@ securelab/
 ### Prerequisites
 
 Ensure the following dependencies are installed on your machine:
+
 - **PHP** >= 8.3 (PHP 8.4 recommended) with `pdo_pgsql`, `pdo_sqlite`, `mbstring`, `openssl`, and `tokenizer` extensions
 - **Composer** >= 2.x
 - **Node.js** >= 20.x and **npm**
@@ -138,48 +143,57 @@ Ensure the following dependencies are installed on your machine:
 ### Installation
 
 1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/iyadeh/securelab.git
-   cd securelab
-   ```
+
+    ```bash
+    git clone https://github.com/iyadeh/securelab.git
+    cd securelab
+    ```
 
 2. **Install PHP and Node dependencies**:
-   ```bash
-   composer install
-   npm install
-   ```
+
+    ```bash
+    composer install
+    npm install
+    ```
 
 3. **Configure the environment**:
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
+
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
 
 4. **Start the database**:
    Run the included PostgreSQL container via Docker Compose:
-   ```bash
-   docker compose up -d
-   ```
+
+    ```bash
+    docker compose up -d
+    ```
 
 5. **Run migrations and seed initial curriculum**:
-   ```bash
-   php artisan migrate --seed
-   ```
-   *(This populates the canonical learning paths, modules, lessons, labs, and achievements.)*
+
+    ```bash
+    php artisan migrate --seed
+    ```
+
+    _(This populates the canonical learning paths, modules, lessons, labs, and achievements.)_
 
 6. **Start the development servers**:
    Run both the Laravel application and the Vite dev server concurrently:
-   ```bash
-   composer run dev
-   ```
-   Or run them in separate terminals:
-   ```bash
-   # Terminal 1: Laravel backend
-   php artisan serve
 
-   # Terminal 2: Vite frontend asset compilation
-   npm run dev
-   ```
+    ```bash
+    composer run dev
+    ```
+
+    Or run them in separate terminals:
+
+    ```bash
+    # Terminal 1: Laravel backend
+    php artisan serve
+
+    # Terminal 2: Vite frontend asset compilation
+    npm run dev
+    ```
 
 7. **Access the application**:
    Open [http://localhost:8000](http://localhost:8000) in your web browser. Register a new account to begin the learning journey.

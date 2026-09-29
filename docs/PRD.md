@@ -324,13 +324,11 @@ User dapat melanjutkan lesson terakhir langsung dari dashboard.
 
 User harus dapat melihat semua learning paths.
 
-Initial paths:
+Kurikulum awal V1 dikonsolidasikan ke dalam 1 canonical learning path:
 
-- Web Security Fundamentals
-- Authentication Security
-- Injection Attacks
-- Client-Side Security
-- Access Control
+- **Web Security Fundamentals** (Easy) — mencakup 3 modul tematik: Injection, Cross-Site Scripting, dan Access & Account Security.
+
+Skema database dan model tetap dirancang untuk mendukung penambahan learning path baru di masa mendatang.
 
 Setiap path menampilkan:
 
@@ -339,28 +337,26 @@ Setiap path menampilkan:
 - number of modules,
 - number of lessons,
 - difficulty,
-- completion percentage.
+- completion percentage,
+- state (not_started, in_progress, completed),
+- next lesson link.
 
 ---
 
 # FR-04 Learning Path Detail
 
-Learning path detail harus menampilkan modules secara berurutan.
+Learning path detail harus menampilkan modules dan pelajaran (lessons) secara berurutan.
 
-Contoh:
+Modul awal pada path Web Security Fundamentals:
 
-1. HTTP Fundamentals
-2. Cookies & Sessions
-3. SQL Injection
-4. Authentication
-5. Cross-Site Scripting
-6. Access Control
+1. **Injection** (SQL Injection Authentication Bypass)
+2. **Cross-Site Scripting** (Reflected XSS, Stored XSS)
+3. **Access & Account Security** (IDOR, Weak Password Reset)
 
-Module dapat mempunyai state:
+Module dan Lesson memiliki state yang diderivasi secara terpusat:
 
-- locked,
-- available,
-- in progress,
+- not_started,
+- in_progress,
 - completed.
 
 ---
@@ -412,152 +408,114 @@ Category filtering dapat ditambahkan apabila tidak memperumit MVP.
 
 ---
 
-# FR-07 Lab Session
+# FR-07 Lab Progress & Ephemeral Simulation
 
-Saat user menekan **Start Lab**, platform membuat `LabSession`.
+V1 menerapkan pendekatan **stateless & ephemeral simulation** untuk menghindari beban I/O database dari log percobaan sementara:
 
-LabSession minimal menyimpan:
+- **Lab Progress**: Progres kelulusan dan aktivitas user dicatat secara eksplisit pada tabel `lab_progress` (`started_at`, `completed_at`) melalui aksi `POST /labs/{lab}/start` dan `POST /labs/{lab}/complete`.
+- **Ephemeral Simulation**: Simulasi dijalankan secara instan tanpa menyimpan rekaman percobaan ke database. Hasil simulasi diteruskan ke workspace melalui flash session Inertia (`session('simulation_result')`).
+- State persisten lab untuk setiap user:
+    - `not_started`,
+    - `in_progress`,
+    - `completed`.
 
-- user,
-- lab,
-- status,
-- state,
-- start time,
-- completion time,
-- expiration time.
-
-Possible statuses:
-
-- created,
-- starting,
-- ready,
-- running,
-- completed,
-- failed,
-- expired.
-
-Tidak semua state harus digunakan secara aktif pada v1, tetapi schema harus siap mendukung evolusi runtime pada v2.
+Abstraksi `LabRuntime` disiapkan agar pada V2 dapat diintegrasikan dengan runtime berbasis container tanpa mengubah arsitektur progress inti.
 
 ---
 
 # FR-08 Simulated Lab Workspace
 
-Lab workspace harus memiliki:
+Lab workspace (`GET /labs/{lab}/workspace`) menyajikan lingkungan interaktif terpadu yang mencakup:
 
 ## Objective Panel
 
-Menampilkan objective challenge.
+Menampilkan instruksi dan sasaran edukasi challenge.
 
 ## Target Application
 
-Menampilkan simulated application interface.
+Menampilkan antarmuka aplikasi simulasi (misal: formulir login, pencarian, profil pengguna, atau komentar).
 
-Contoh:
+## Simulation Form
 
-- login form,
-- search form,
-- profile page,
-- comment form.
+Input field sintetis yang terikat pada aturan validasi ketat per skenario.
 
-## Request Inspector
+## Attack Flow (Simulation Trace)
 
-Menampilkan request yang dihasilkan user interaction.
+Visualisasi terstruktur tahapan aliran data sintetis melalui sistem:
 
-## Response Inspector
+- **Input**: Data yang diserahkan learner.
+- **Application**: Pemrosesan aplikasi terhadap input.
+- **Decision**: Keputusan keamanan logis (apakah kondisi vulnerable tercapai).
+- **Output**: Respons aplikasi simulasi.
 
-Menampilkan simulated HTTP response.
+## Analysis & Remediation (Integrated Guidance)
 
-## Application Inspector
+Panduan edukasi mendalam yang tampil di dalam workspace setelah simulasi dijalankan:
 
-Menampilkan bagaimana backend memproses input.
-
-## Database Inspector
-
-Menampilkan simulated query/database interaction jika relevan.
-
-## Attack Flow
-
-Menampilkan visualisasi perjalanan input melalui sistem.
+- Root cause vulnerability,
+- Dampak keamanan,
+- Rekomendasi remediasi,
+- Perbandingan kode **Vulnerable vs Secure** secara berdampingan.
 
 ---
 
 # FR-09 Lab Execution
 
-User mengirim input melalui workspace.
+User mengirim input melalui workspace:
 
 Request masuk ke:
 
-**LabController → LabSessionService → LabRuntime**
+**LabSimulationController → LabRuntime (SimulationLabRuntime) → LabSimulator**
 
-V1 menggunakan:
+V1 menggunakan implementasi simulator:
 
-`SimulationLabRuntime`
+- `SqlInjectionAuthenticationBypassSimulator`
+- `ReflectedXssSimulator`
+- `StoredXssSimulator`
+- `IdorSimulator`
+- `WeakPasswordResetSimulator`
 
-Simulation runtime meneruskan input ke vulnerability-specific evaluator.
-
-Contoh:
-
-- `SqlInjectionEvaluator`
-- `ReflectedXssEvaluator`
-- `IdorEvaluator`
-
-Evaluator tidak menjalankan payload secara nyata.
-
-Evaluator hanya menentukan apakah input memenuhi kondisi challenge yang telah didefinisikan.
+Simulator tidak menjalankan payload secara nyata pada SQL engine, sistem shell, atau browser runtime. Simulator mengevaluasi kondisi input secara deterministik dan mengembalikan `SimulationResult` dengan outcome (`normal_behavior`, `vulnerable_behavior`, atau `rejected`).
 
 ---
 
-# FR-10 Attack Events
+# FR-10 Simulation Trace Steps
 
-Setiap lab execution dapat menghasilkan normalized events.
+Setiap eksekusi simulasi menghasilkan normalized trace steps:
 
-Contoh tipe event:
+- `input`,
+- `application`,
+- `decision`,
+- `output`.
 
-- request,
-- input,
-- application,
-- query,
-- authorization,
-- database,
-- browser,
-- response,
-- result.
-
-Frontend menggunakan events tersebut untuk attack visualization.
-
-Frontend tidak boleh bergantung pada raw simulation implementation.
+Frontend menggunakan steps tersebut untuk visualisasi alur serangan yang informatif tanpa bergantung pada implementasi backend mentah.
 
 ---
 
 # FR-11 Lab Completion
 
-Jika evaluator menentukan challenge berhasil:
+Penyelesaian lab dilakukan melalui aksi eksplisit:
 
-- session dapat ditandai completed,
-- progress diperbarui,
-- achievement dievaluasi,
-- solution page dibuka.
+- User menandai lab selesai melalui `POST /labs/{lab}/complete`,
+- Database mencatat `completed_at` pada `lab_progress`,
+- `AchievementService` secara otomatis mengevaluasi dan memberikan achievement yang memenuhi syarat,
+- Halaman workspace tetap dapat diakses untuk ditinjau (_available for review_).
 
 User tidak boleh mendapatkan arbitrary execution capability setelah menyelesaikan challenge.
 
 ---
 
-# FR-12 Solution / Remediation Page
+# FR-12 Remediation Guidance
 
-Solution page harus menampilkan:
+Panduan remediasi disajikan langsung di dalam workspace lab (`SimulationAnalysis`) setelah simulasi dijalankan:
 
-- vulnerability name,
-- objective result,
-- root cause,
-- attack explanation,
-- vulnerable implementation,
-- secure implementation,
-- why the fix works,
-- relevant best practices.
-
-Layout utama:
-
-**Vulnerable vs Secure**
+- Nama vulnerability dan kategori kontrol keamanan,
+- Ringkasan hasil simulasi,
+- Root cause,
+- Potensi dampak,
+- Langkah remediasi bertahap,
+- Perbandingan pola kode: **Vulnerable Implementation vs. Secure Implementation**,
+- Penjelasan mengapa perbaikan tersebut efektif.
 
 ---
 
@@ -584,40 +542,43 @@ Skill categories awal:
 
 # FR-14 Achievements
 
-Initial achievements dapat berupa:
+V1 menetapkan 5 initial achievements definitif yang dievaluasi secara server-side melalui `AchievementService`:
+
+### First Lesson
+
+Complete your first SecureLab lesson.
 
 ### First Blood
 
-Complete first lab.
+Complete your first SecureLab guided lab.
 
-### Code Explorer
+### Path Complete
 
-Complete a defined number of lessons.
+Complete every lesson in a SecureLab learning path.
 
-### Quick Learner
+### Lab Series Complete
 
-Complete a beginner learning sequence.
+Complete every currently available SecureLab lab.
 
-### Persistent Learner
+### Security Foundations Complete
 
-Maintain learning activity over multiple days.
+Complete all available SecureLab lessons and labs.
 
-Achievements harus bersifat educational/gamification ringan dan tidak mengganggu core experience.
+Achievements bersifat educational/gamification ringan dan divalidasi langsung dari progres riil kurikulum.
 
 ---
 
 # FR-15 Profile
 
-Profile harus menampilkan:
+Profile (`GET /profile`) menampilkan identitas pembelajar dan ringkasan pencapaian riil:
 
 - name,
 - email,
-- level,
-- XP jika digunakan,
-- completed lessons,
-- completed labs,
-- achievements,
-- current streak.
+- joined date,
+- total & completed lessons,
+- total & completed labs,
+- unlocked achievements summary,
+- progress breakdown per learning path.
 
 ---
 
@@ -696,23 +657,21 @@ Learning outcome:
 
 Browser  
 ↓  
-React + Inertia  
+React 19 + Inertia v3  
 ↓  
-Laravel  
+Laravel 13  
 ↓  
-PostgreSQL
+PostgreSQL (Testing: SQLite in-memory)
 
 Lab subsystem:
 
-Laravel  
-↓  
-LabSessionService  
+Laravel Controller  
 ↓  
 LabRuntime Contract  
 ↓  
 SimulationLabRuntime  
 ↓  
-Scenario Evaluator
+Scenario Simulators
 
 ---
 
@@ -720,27 +679,30 @@ Scenario Evaluator
 
 ## Backend
 
-- Laravel
-- PHP
-- Laravel authentication/session
+- Laravel 13 (PHP 8.4)
+- Laravel Fortify (authentication & email verification)
+- Laravel Wayfinder (typed TypeScript route generation)
 - Eloquent ORM
 
 ## Frontend
 
-- Inertia
-- React
-- TypeScript
-- Tailwind CSS
+- Inertia.js v3
+- React 19
+- TypeScript 5.7
+- Tailwind CSS v4 via `@tailwindcss/vite`
+- Radix UI & Lucide React
 
 ## Database
 
-- PostgreSQL
+- PostgreSQL (local development & production)
+- SQLite in-memory (automated tests & CI)
 
-## Testing
+## Testing & Quality
 
-- PHPUnit / Pest
-- Laravel feature tests
-- React component tests jika diperlukan
+- Pest PHP (Feature and Unit tests)
+- Larastan / PHPStan (Level 7)
+- Laravel Pint
+- TypeScript compiler (`tsc --noEmit`)
 
 ## V2 Candidates
 
@@ -753,45 +715,37 @@ Scenario Evaluator
 
 # 15. Application Architecture
 
-Laravel menggunakan modular monolith.
+Laravel menggunakan modular monolith dengan pemisahan service layer yang bersih.
 
-Suggested structure:
+Struktur aplikasi:
 
 ```text
 app/
-├── Domain/
-│   ├── Learning/
-│   ├── Labs/
-│   ├── Progress/
-│   └── Achievements/
-│
+├── Actions/
+│   └── Fortify/
 ├── Http/
 │   ├── Controllers/
+│   ├── Middleware/
 │   └── Requests/
-│
 ├── Models/
-├── Policies/
-├── Services/
-└── Providers/
-```
-
-Lab domain:
-
-```text
-app/Domain/Labs/
-├── Contracts/
-│   └── LabRuntime.php
-├── Runtime/
-│   └── SimulationLabRuntime.php
-├── Evaluators/
-│   ├── SqlInjectionEvaluator.php
-│   ├── ReflectedXssEvaluator.php
-│   └── IdorEvaluator.php
-├── DTO/
-│   ├── LabExecutionResult.php
-│   └── LabEvent.php
+├── Providers/
 └── Services/
-    └── LabSessionService.php
+    ├── AchievementService.php
+    ├── LearningProgressService.php
+    └── Labs/
+        ├── Contracts/
+        │   ├── LabRuntime.php
+        │   └── LabSimulator.php
+        ├── SimulationLabRuntime.php
+        ├── SimulationResult.php
+        ├── SimulationOutcome.php
+        ├── LabGuidanceProvider.php
+        └── Simulators/
+            ├── SqlInjectionAuthenticationBypassSimulator.php
+            ├── ReflectedXssSimulator.php
+            ├── StoredXssSimulator.php
+            ├── IdorSimulator.php
+            └── WeakPasswordResetSimulator.php
 ```
 
 ---
@@ -823,12 +777,11 @@ Core entities:
 
 - User
 - LearningPath
-- Module
+- LearningModule
 - Lesson
 - LessonProgress
 - Lab
-- LabSession
-- LabAttempt
+- LabProgress
 - Achievement
 - UserAchievement
 
@@ -836,14 +789,16 @@ Relationships:
 
 ```text
 LearningPath
- └── Modules
-      ├── Lessons
-      └── Labs
+ └── LearningModules
+      └── Lessons ──[optional]──► Lab
+
+Lab
+ └── Lessons
 
 User
  ├── LessonProgress
- ├── LabSessions
- └── Achievements
+ ├── LabProgress
+ └── UserAchievements
 ```
 
 ---
@@ -855,7 +810,12 @@ User
 - id
 - name
 - email
+- email_verified_at
 - password
+- two_factor_secret
+- two_factor_recovery_codes
+- two_factor_confirmed_at
+- remember_token
 - created_at
 - updated_at
 
@@ -866,110 +826,129 @@ User
 - title
 - description
 - difficulty
-- position
-- published
+- created_at
+- updated_at
 
-## modules
+## learning_modules
 
 - id
 - learning_path_id
 - title
 - description
 - position
+- created_at
+- updated_at
 
 ## lessons
 
 - id
-- module_id
+- learning_module_id
+- lab_id (nullable)
 - slug
 - title
 - summary
 - content
 - estimated_minutes
 - position
+- created_at
+- updated_at
 
 ## lesson_progress
 
 - id
 - user_id
 - lesson_id
-- status
 - started_at
 - completed_at
+- created_at
+- updated_at
 
 ## labs
 
 - id
-- module_id
 - slug
 - title
 - description
 - vulnerability_type
 - difficulty
 - scenario
-- position
+- created_at
+- updated_at
 
-## lab_sessions
+## lab_progress
 
 - id
 - user_id
 - lab_id
-- status
-- state
-- runtime
 - started_at
 - completed_at
-- expires_at
-
-## lab_attempts
-
-- id
-- lab_session_id
-- input
-- result
-- successful
 - created_at
+- updated_at
 
 ## achievements
 
 - id
-- key
-- name
+- slug
+- title
 - description
-- icon
+- category
+- position
+- created_at
+- updated_at
 
 ## user_achievements
 
+- id
 - user_id
 - achievement_id
-- earned_at
+- unlocked_at
+- created_at
+- updated_at
 
 ---
 
 # 19. Routes
 
 ```text
-GET  /dashboard
+# Authentication (Laravel Fortify)
+GET   /login
+POST  /login
+POST  /logout
+GET   /register
+POST  /register
+GET   /email/verify
+...
 
-GET  /learn
-GET  /learn/{learningPath}
+# Learner Overview
+GET   /dashboard
 
-GET  /lessons/{lesson}
-POST /lessons/{lesson}/complete
+# Learning Experience
+GET   /learn
+GET   /learn/{learningPath:slug}
+GET   /learn/{learningPath:slug}/{lesson:slug}
+POST  /learn/{learningPath:slug}/{lesson:slug}/start
+POST  /learn/{learningPath:slug}/{lesson:slug}/complete
 
-GET  /labs
-GET  /labs/{lab}
+# Labs Experience & Simulation
+GET   /labs
+GET   /labs/{lab:slug}
+GET   /labs/{lab:slug}/workspace
+POST  /labs/{lab:slug}/simulate
+POST  /labs/{lab:slug}/start
+POST  /labs/{lab:slug}/complete
 
-POST /labs/{lab}/start
+# Progress, Achievements & Profile
+GET   /progress
+GET   /achievements
+GET   /profile
 
-GET  /lab-sessions/{session}
-POST /lab-sessions/{session}/execute
-POST /lab-sessions/{session}/submit
-POST /lab-sessions/{session}/reset
-
-GET  /progress
-
-GET  /profile
+# Settings
+GET   /settings/profile
+PATCH /settings/profile
+DELETE /settings/profile
+GET   /settings/security
+PUT   /settings/password
+GET   /settings/appearance
 ```
 
 ---
@@ -998,7 +977,7 @@ Lab simulation tidak boleh melakukan arbitrary external network request.
 
 ## SEC-06
 
-Authorization harus diterapkan agar user hanya dapat mengakses lab session miliknya.
+Authorization dan session ownership diterapkan agar progress dan data otentikasi user terisolasi dengan aman.
 
 ## SEC-07
 
@@ -1034,10 +1013,9 @@ V1 harus menyediakan `LabRuntime` abstraction.
 
 ```text
 LabRuntime
-├── start()
-├── execute()
-├── reset()
-└── stop()
+├── definition(Lab $lab): ?array
+├── validationRules(Lab $lab): array
+└── simulate(Lab $lab, array $input): ?SimulationResult
 ```
 
 V1 implementation:
@@ -1154,8 +1132,8 @@ Initial learning content disediakan menggunakan database seeders.
 
 ```text
 database/seeders/
-├── LearningPathSeeder.php
-├── LessonSeeder.php
+├── DatabaseSeeder.php
+├── LearningCurriculumSeeder.php
 ├── LabSeeder.php
 └── AchievementSeeder.php
 ```
@@ -1176,29 +1154,34 @@ Minimum automated test coverage harus mencakup:
 
 - registration,
 - login,
+- email verification enforcement,
 - authorization.
 
 ## Learning
 
+- learning path overview,
+- learning path detail,
 - lesson access,
-- lesson completion,
-- progress updates.
+- lesson start and completion actions,
+- progress updates and curriculum queries.
 
 ## Labs
 
-- session creation,
-- session ownership,
+- catalog access,
+- workspace access,
 - evaluator behavior,
-- unsuccessful attempt,
-- successful attempt,
-- completion status,
-- reset behavior.
+- normal behavior simulation,
+- vulnerable behavior simulation,
+- rejected input handling,
+- lab start action,
+- lab completion action.
 
 ## Security
 
-- accessing another user's lab session fails,
+- unauthenticated and unverified access blocked,
 - arbitrary lab input tidak dieksekusi,
-- manipulated frontend completion state tidak dipercaya.
+- manipulated frontend completion state tidak dipercaya,
+- server-side authoritative progress and achievement award evaluation.
 
 ---
 
@@ -1245,13 +1228,13 @@ SecureLab v1 dianggap selesai ketika user baru dapat:
 5. Membaca lesson.
 6. Menandai lesson selesai.
 7. Membuka lab.
-8. Memulai lab session.
-9. Mengirim input.
+8. Membuka lab workspace.
+9. Mengirim input simulasi.
 10. Melihat simulated application behavior.
-11. Melihat attack visualization.
-12. Menyelesaikan challenge.
-13. Membaca root cause.
-14. Membandingkan vulnerable dan secure implementation.
+11. Melihat attack visualization (simulation trace).
+12. Membaca root cause dan panduan remediasi.
+13. Membandingkan vulnerable dan secure implementation.
+14. Menyelesaikan challenge dan menandai lab selesai.
 15. Melihat progress diperbarui.
 16. Mendapat achievement yang sesuai.
 
